@@ -40,6 +40,8 @@ def prepare_environment() -> Paths:
     os.environ.setdefault("HF_HOME", str(paths.models / "huggingface"))
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     os.environ.setdefault("OPENCV_IO_ENABLE_OPENEXR", "1")
+    # Gradio reports usage to its servers by default; this tool stays local.
+    os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
     if UPSTREAM_DIR.is_dir() and str(UPSTREAM_DIR) not in sys.path:
         sys.path.insert(0, str(UPSTREAM_DIR))
     return paths

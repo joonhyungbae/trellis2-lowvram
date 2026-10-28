@@ -1,6 +1,9 @@
-"""Render a GLB from four angles next to its input image (for docs and reports).
+"""Render a GLB from four angles next to its input image (web UI, docs and reports).
 
-    uv run --frozen python scripts/render_preview.py model.glb preview.jpg [input.png]
+    uv run --frozen python -m trellis2_lowvram.preview model.glb preview.jpg [input.png]
+
+The web UI shows these images next to its interactive 3D view, because that view needs WebGPU,
+which some browsers (and every headless test browser) do not have.
 
 Base color texture (with its alpha) and simple directional shading, rasterized with nvdiffrast
 (needs a GPU). A quick look, not a PBR render: metallic/roughness are ignored.
@@ -75,7 +78,7 @@ def view(ctx, v, f, uv, n, tex, yaw: float, pitch: float) -> np.ndarray:
     return (img[0].flip(0).clamp(0, 1).cpu().numpy() * 255).astype(np.uint8)
 
 
-def render(glb: str, out: str, ref: str | None = None) -> None:
+def render(glb: str, out: str, ref: str | None = None) -> str:
     v, f, uv, n, tex = load(glb)
     ctx = dr.RasterizeCudaContext()
     angles = [(0, 0), (math.pi / 2, 0), (math.pi, 0), (math.pi / 4, -0.5)]
@@ -89,6 +92,7 @@ def render(glb: str, out: str, ref: str | None = None) -> None:
     for i, tile in enumerate(tiles):
         sheet.paste(tile, (i * SIZE, 0))
     sheet.save(out, quality=88)
+    return out
 
 
 if __name__ == "__main__":

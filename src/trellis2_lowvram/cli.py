@@ -237,6 +237,16 @@ def cmd_benchmark(args: argparse.Namespace, paths) -> int:
     return 0 if all(r["ok"] for r in report["results"]) else 1
 
 
+def cmd_ui(args: argparse.Namespace, paths) -> int:
+    _prepare_gpu()
+    from .ui.app import launch
+
+    if args.share:
+        say(t("ui.share_warning"))
+    launch(share=args.share, port=args.port, lang=args.lang, browser=not args.no_browser)
+    return 0
+
+
 def _say_stage(stage: str) -> None:
     say(t("gen.stage", stage=t(f"stage.{stage}")))
 
@@ -295,6 +305,12 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--out", help="report folder (default: logs/benchmark-<time>)")
     add_gen_options(b)
     b.set_defaults(func=cmd_benchmark)
+
+    u = sub.add_parser("ui", help="open the web interface (local only)")
+    u.add_argument("--port", type=int, help="default: first free port from 7860")
+    u.add_argument("--share", action="store_true", help="also make a public gradio.live link")
+    u.add_argument("--no-browser", action="store_true", help="do not open a browser tab")
+    u.set_defaults(func=cmd_ui)
     return p
 
 

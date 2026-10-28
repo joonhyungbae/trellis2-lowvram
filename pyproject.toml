@@ -31,6 +31,8 @@ dependencies = [
     "einops",
     # faster Hugging Face downloads (Xet storage); without it hub falls back to plain HTTP
     "hf-xet",
+    # web UI; same version as upstream app.py
+    "gradio==6.0.1",
     # environment checks that run without torch
     "nvidia-ml-py",
     "psutil",

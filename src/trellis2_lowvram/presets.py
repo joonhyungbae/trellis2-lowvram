@@ -17,6 +17,7 @@ class Settings:
     texture_size: int = 2048
     decimation_target: int = 500_000
     max_num_tokens: int = 49152  # upstream default; only matters for 1024_cascade
+    tex_guidance: float = 1.0  # texture sampler guidance_strength (upstream pipeline.json: 1.0)
 
 
 PRESETS: dict[str, Settings] = {

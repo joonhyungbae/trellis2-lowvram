@@ -48,9 +48,7 @@ def main() -> int:
     from trellis2_lowvram.memory import StageMonitor, StageOOM, apply_vram_cap
     from trellis2_lowvram.pipeline import Generator
     from trellis2_lowvram.presets import resolve
-
-    sys.path.insert(0, str(Path(__file__).parent))
-    from render_preview import render
+    from trellis2_lowvram.preview import render
 
     cap = apply_vram_cap(args.vram_cap)
     settings = resolve(args.preset)

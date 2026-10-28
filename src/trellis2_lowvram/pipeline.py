@@ -97,16 +97,22 @@ class Generator:
         if self.pipe.rembg_model is not None:
             self.pipe.rembg_model.cpu()
 
-    def generate(self, image: Image.Image, seed: int, s: Settings) -> Any:
+    def generate(
+        self, image: Image.Image, seed: int, s: Settings, remove_background: bool = True
+    ) -> Any:
+        """remove_background=False keeps the picture as is (no cut-out, no centering crop)."""
         self.ensure(s.pipeline_type)
         steps = {"steps": s.steps}
+        if not remove_background:
+            image = image.convert("RGB")
         try:
             meshes = self.pipe.run(
                 image,
                 seed=seed,
+                preprocess_image=remove_background,
                 sparse_structure_sampler_params=steps,
                 shape_slat_sampler_params=steps,
-                tex_slat_sampler_params=steps,
+                tex_slat_sampler_params={**steps, "guidance_strength": s.tex_guidance},
                 pipeline_type=s.pipeline_type,
                 max_num_tokens=s.max_num_tokens,
             )

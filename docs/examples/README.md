@@ -3,7 +3,7 @@
 Eight models made with this tool from TRELLIS.2's own sample images (MIT, `assets/example_image`),
 chosen to show both what works and what is hard. Each picture: the input, then the generated
 model from the front, side, back and above. Previews are a quick render of the base color
-texture (`scripts/render_preview.py`), not a PBR render.
+texture (`trellis2_lowvram.preview`), not a PBR render.
 
 이 도구로 TRELLIS.2 기본 예시 이미지(MIT)에서 만든 모델 8개입니다. 잘되는 것과 어려운 것을 함께 골랐습니다.
 그림마다 맨 왼쪽이 입력, 나머지가 만들어진 모델의 앞·옆·뒤·위입니다.

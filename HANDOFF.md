@@ -71,7 +71,7 @@ Not verified yet:
 - `generate` interactive OOM prompt; the web UI (M3).
 
 M2 measurements: docs/BENCHMARKS.md. Gallery: docs/examples (GLBs in release `examples-v1`,
-regenerate with `scripts/make_examples.py`, previews with `scripts/render_preview.py`).
+regenerate with `scripts/make_examples.py`, previews with `trellis2_lowvram.preview`).
 
 Gotchas found so far:
 - uv must use its own managed Python (`python-preference = "only-managed"`): a conda Python ships

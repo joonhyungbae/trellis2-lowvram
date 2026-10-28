@@ -43,6 +43,62 @@ class Job:
     seeds: list[int]
     vram_cap_gib: float | None = None
     obj: bool = True
+    remove_background: bool = True
+
+
+def make_one(
+    gen: Any,
+    image: Any,
+    seed: int,
+    settings: Settings,
+    out_base: Path,
+    ask_retry: AskRetry | None = None,
+    remove_background: bool = True,
+    obj: bool = True,
+) -> list[SeedResult]:
+    """Generate one seed and export it, lowering settings after an OOM when ask_retry agrees.
+
+    An OOM while exporting retries only the export with the mesh already made; an OOM while
+    generating reruns the generation. Every attempt is returned (the last one is the outcome).
+    """
+    monitor = gen.monitor
+    attempts: list[SeedResult] = []
+    s, mesh = settings, None
+    while True:
+        start, t0 = len(monitor.records), time.perf_counter()
+        try:
+            if mesh is None:
+                mesh = gen.generate(image.copy(), seed, s, remove_background)
+            files = gen.export(mesh, out_base, s, obj=obj)
+            attempts.append(
+                SeedResult(
+                    seed,
+                    True,
+                    asdict(s),
+                    [str(f) for f in files],
+                    round(time.perf_counter() - t0, 1),
+                    stages=monitor.to_dicts()[start:],
+                )
+            )
+            return attempts
+        except StageOOM as e:
+            attempts.append(
+                SeedResult(
+                    seed,
+                    False,
+                    asdict(s),
+                    [],
+                    round(time.perf_counter() - t0, 1),
+                    oom_stage=e.stage,
+                    stages=monitor.to_dicts()[start:],
+                )
+            )
+            proposed = lower(s, e.stage)
+            if proposed is None or ask_retry is None or not ask_retry(e.stage, s, proposed):
+                return attempts
+            if not e.stage.startswith("export") or proposed.pipeline_type != s.pipeline_type:
+                mesh = None  # the mesh itself has to be made again
+            s = proposed
 
 
 def run_job(
@@ -65,42 +121,10 @@ def run_job(
 
     results: list[SeedResult] = []
     for seed in job.seeds:
-        s = job.settings
-        while True:
-            start = len(monitor.records)
-            t0 = time.perf_counter()
-            try:
-                mesh = gen.generate(image.copy(), seed, s)
-                base = job.out_dir / f"{job.image.stem}_seed{seed}"
-                files = gen.export(mesh, base, s, obj=job.obj)
-                del mesh
-                results.append(
-                    SeedResult(
-                        seed,
-                        True,
-                        asdict(s),
-                        [str(f) for f in files],
-                        round(time.perf_counter() - t0, 1),
-                        stages=monitor.to_dicts()[start:],
-                    )
-                )
-                break
-            except StageOOM as e:
-                proposed = lower(s, e.stage)
-                results.append(
-                    SeedResult(
-                        seed,
-                        False,
-                        asdict(s),
-                        [],
-                        round(time.perf_counter() - t0, 1),
-                        oom_stage=e.stage,
-                        stages=monitor.to_dicts()[start:],
-                    )
-                )
-                if proposed is None or ask_retry is None or not ask_retry(e.stage, s, proposed):
-                    break
-                s = proposed
+        base = job.out_dir / f"{job.image.stem}_seed{seed}"
+        results += make_one(
+            gen, image, seed, job.settings, base, ask_retry, job.remove_background, job.obj
+        )
 
     return {
         "tool": "trellis2-lowvram",
