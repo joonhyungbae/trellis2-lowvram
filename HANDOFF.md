@@ -93,6 +93,11 @@ Gotchas found so far:
   platform" warning). All Windows measurements in BENCHMARKS were taken without it.
 - A sync that fails midway (old shim, locked .exe) can leave the CUDA extensions uninstalled;
   `doctor` reports it and `install` / `trellis2 install-extensions` fixes it.
+- install.ps1 step 4 refuses to run while a python/trellis2-lowvram process from this .venv is alive
+  (web UI, make3d): the sync would fail halfway on locked files.
+- pc2 (Windows test PC) is a git clone at C:\\trellis2-lowvram since 2026-10-29 (converted from the ZIP
+  install in place). Pushing over SSH fails (Git Credential Manager needs the desktop session);
+  push from a terminal on the pc2 desktop.
 - Shims (`trellis2.bat/.sh`) use `uv run --no-sync`: a sync while the web UI runs fails on Windows
   (`trellis2-lowvram.exe` is locked, os error 32). Only install/update change the environment.
 - DINOv3 access, how it fails: **401** = no token sent (nothing in our HF_HOME; a student's own

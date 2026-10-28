@@ -84,6 +84,13 @@ try {
     }
 
     $Step = 4; Write-Host "== 4/6 Python packages (PyTorch etc., several GB)"
+    # A running web UI / make3d window locks files in .venv and the update would fail halfway.
+    $busy = Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='trellis2-lowvram.exe'" |
+        Where-Object { $_.ExecutablePath -like "$Root\.venv\*" -or $_.CommandLine -like "*$Root\.venv\*" }
+    if ($busy) {
+        Msg "install.close_windows" | Out-Null
+        Fail "trellis2-lowvram is still running (PID $($busy.ProcessId -join ', '))"
+    }
     Run "uv sync" uv sync --frozen --no-dev --python 3.11
 
     $Step = 5; Write-Host "== 5/6 CUDA extensions"

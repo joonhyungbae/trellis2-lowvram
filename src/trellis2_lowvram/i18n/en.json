@@ -153,5 +153,6 @@
   "ui.recheck": "Check again",
   "ui.download.progress": "Downloading models {done}/{total}: {name}",
   "ui.download.done": "All models downloaded. Loading them now.",
-  "ui.download.need_access": "DINOv3 access must be confirmed before downloading."
+  "ui.download.need_access": "DINOv3 access must be confirmed before downloading.",
+  "install.close_windows": "trellis2-lowvram is still running (the web interface or a make3d window). Close those black windows, then run this again."
 }
