@@ -7,4 +7,6 @@ if [ -x .tools/uv/uv ]; then
   UV="$PWD/.tools/uv/uv"
   export UV_PYTHON_INSTALL_DIR="$PWD/.tools/python" UV_CACHE_DIR="$PWD/.tools/uv-cache"
 fi
-exec "$UV" run --frozen --no-dev trellis2-lowvram "$@"
+# --no-sync: never touch the environment here (install/update do that). Syncing while another
+# window (e.g. the web UI) runs fails on Windows because the running .exe is locked.
+exec "$UV" run --no-sync python -m trellis2_lowvram "$@"

@@ -87,6 +87,8 @@ Gotchas found so far:
 - Transparent containers: only the shell is generated; contents seen through glass are lost.
 - Windows NVIDIA drivers spill to shared system memory instead of OOM (slow, not an error).
 - Gradio sends usage analytics by default; `config.prepare_environment` sets GRADIO_ANALYTICS_ENABLED=False.
+- Shims (`trellis2.bat/.sh`) use `uv run --no-sync`: a sync while the web UI runs fails on Windows
+  (`trellis2-lowvram.exe` is locked, os error 32). Only install/update change the environment.
 - `pkill -f <pattern>` also kills the shell running it (its command line contains the pattern); kill by PID.
 - `trimesh.load(glb)` with default `process=True` takes minutes on these meshes; use `process=False`.
 
