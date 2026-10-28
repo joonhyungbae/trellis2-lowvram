@@ -1,0 +1,80 @@
+{
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "device_total_gib": 23.52,
+  "cap_gib": 14.5,
+  "fraction": 0.6166,
+  "settings": {
+    "pipeline_type": "512",
+    "steps": 12,
+    "texture_size": 2048,
+    "decimation_target": 500000,
+    "max_num_tokens": 49152
+  },
+  "seed": 42,
+  "examples": [
+    {
+      "name": "bust",
+      "source": "39488b45bb4820ff0f31bb07cb8d0a19ebd991adbcb22a10fc89ee41c59219ee.webp",
+      "ok": true,
+      "oom_stage": null,
+      "seconds": 38.1,
+      "peak_reserved_mib": 2728
+    },
+    {
+      "name": "pineapple",
+      "source": "5a020584b95cf3db3b6420e9b09fb93e7c0f4046e61076e5b4c65c63dc1f5837.webp",
+      "ok": true,
+      "oom_stage": null,
+      "seconds": 29.6,
+      "peak_reserved_mib": 2790
+    },
+    {
+      "name": "typewriter",
+      "source": "65433d02fc56dae164719ec29cb9646c0383aa1d0e24f0bb592899f08428d68e.webp",
+      "ok": true,
+      "oom_stage": null,
+      "seconds": 50.5,
+      "peak_reserved_mib": 4146
+    },
+    {
+      "name": "village",
+      "source": "4bc7abe209c8673dd3766ee4fad14d40acbed02d118e7629f645c60fd77313f1.webp",
+      "ok": true,
+      "oom_stage": null,
+      "seconds": 34.7,
+      "peak_reserved_mib": 4604
+    },
+    {
+      "name": "maple",
+      "source": "e134444178eae855cfdefb9e5259d076df5e34f780ee44d4ad604483ff69cc74.webp",
+      "ok": true,
+      "oom_stage": null,
+      "seconds": 41.3,
+      "peak_reserved_mib": 2950
+    },
+    {
+      "name": "stroller",
+      "source": "e513fcd6c897b249fc4bff54268b4d0bbab6403503ecf3846d92feb892536e5e.webp",
+      "ok": true,
+      "oom_stage": null,
+      "seconds": 45.2,
+      "peak_reserved_mib": 3070
+    },
+    {
+      "name": "mermaid",
+      "source": "8ce83f6a28910e755902de10918672e77dd23476f43f0f1521c48667de6cea84.webp",
+      "ok": true,
+      "oom_stage": null,
+      "seconds": 38.7,
+      "peak_reserved_mib": 3608
+    },
+    {
+      "name": "fishbowl",
+      "source": "b358d0eb96a68ac4ba1f2fb6d44ea2225f95fdfbf9cf4e0da08650c3704f1d23.webp",
+      "ok": true,
+      "oom_stage": null,
+      "seconds": 52.9,
+      "peak_reserved_mib": 6468
+    }
+  ]
+}

@@ -46,7 +46,7 @@ quantized model; never describe it that way.
 |---|---|---|
 | M0 | Research and design (`docs/PLAN.md`) | done, approved |
 | M1 | Installer, `doctor`, HF access, model download, CUDA extension wheels | done (pending maintainer review) |
-| M2 | Memory-managed generation CLI, per-stage VRAM report, OOM retry | not started |
+| M2 | Memory-managed generation CLI, per-stage VRAM report, OOM retry | **in progress**: generate/benchmark work on Linux and Windows; OOM retry path untested |
 | M3 | Gradio web UI (upload, presets, multi-seed, preview, GLB/OBJ, ko/en) | not started |
 | M4 | READMEs, TROUBLESHOOTING, BENCHMARKS, THIRD_PARTY_LICENSES, v0.1.0 | not started |
 
@@ -67,7 +67,11 @@ Verified on Windows 11 (pc2: RTX 3080 10GB, driver 610.88, ZIP download without 
 Not verified yet:
 - `install.bat` double-click itself (tested via `install.ps1` over SSH; same script).
 - Interactive `login` prompt on a Windows console (token was passed with `--token`).
-- Any generation at all, on any OS (M2). Triton kernels compile on first use (untested on Windows).
+- A real 16GB card. The OOM retry path (no OOM has happened yet: Windows spills into shared memory).
+- `generate` interactive OOM prompt; the web UI (M3).
+
+M2 measurements: docs/BENCHMARKS.md. Gallery: docs/examples (GLBs in release `examples-v1`,
+regenerate with `scripts/make_examples.py`, previews with `scripts/render_preview.py`).
 
 Gotchas found so far:
 - uv must use its own managed Python (`python-preference = "only-managed"`): a conda Python ships
@@ -77,6 +81,11 @@ Gotchas found so far:
 - Windows extension builds need `DISTUTILS_USE_SDK=1` with an activated MSVC environment.
 - `huggingface_hub` 0.36 `login()` has no `skip_if_logged_in`.
 - `o-voxel/` has no license file of its own; the wheel gets the TRELLIS.2 root LICENSE.
+- Upstream `to_glb` bakes alpha but always writes `alphaMode=OPAQUE`; `pipeline.set_alpha_mode`
+  switches to BLEND when >1% of used texels are see-through (glass, jellyfish).
+- Transparent containers: only the shell is generated; contents seen through glass are lost.
+- Windows NVIDIA drivers spill to shared system memory instead of OOM (slow, not an error).
+- `trimesh.load(glb)` with default `process=True` takes minutes on these meshes; use `process=False`.
 
 ## 4. Map
 

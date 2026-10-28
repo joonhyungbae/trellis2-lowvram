@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import logging
-import platform
 import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
@@ -15,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
+from .env_check import os_name
 from .memory import StageMonitor, StageOOM, apply_vram_cap
 from .presets import Settings, lower
 
@@ -108,7 +108,7 @@ def run_job(
         "time": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "image": job.image.name,
         "system": {
-            "os": f"{platform.system()} {platform.release()}",
+            "os": os_name(),
             "gpu": torch.cuda.get_device_name(0),
             "driver_cuda": torch.version.cuda,
             "torch": torch.__version__,

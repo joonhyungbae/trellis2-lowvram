@@ -135,12 +135,41 @@ class Generator:
             remesh_band=1,
             remesh_project=0,
         )
+        set_alpha_mode(glb)
         out_base.parent.mkdir(parents=True, exist_ok=True)
         paths = [out_base.with_suffix(".glb")]
         glb.export(paths[0], extension_webp=False)
         if obj:
             paths += export_obj(paths[0])
         return paths
+
+
+# Share of used texels that must be see-through before the material is marked transparent.
+TRANSPARENT_SHARE = 0.01
+
+
+def set_alpha_mode(mesh: Any) -> str:
+    """Mark the material BLEND when the baked texture really has see-through parts.
+
+    Upstream to_glb bakes an alpha channel (glass, jellyfish...) but always writes
+    alphaMode=OPAQUE, so every viewer shows glass as a solid shell. We look at the alpha of
+    the texels the mesh actually uses (unused texels are inpainted) and switch only then.
+    """
+    import numpy as np
+
+    mat = mesh.visual.material
+    tex = np.asarray(mat.baseColorTexture)
+    if tex.ndim != 3 or tex.shape[-1] != 4:
+        return mat.alphaMode
+    h, w = tex.shape[:2]
+    uv = np.asarray(mesh.visual.uv)
+    rows = ((1 - uv[:, 1]) * (h - 1)).astype(int).clip(0, h - 1)
+    cols = (uv[:, 0] * (w - 1)).astype(int).clip(0, w - 1)
+    share = float((tex[rows, cols, 3] < 250).mean())
+    if share > TRANSPARENT_SHARE:
+        mat.alphaMode = "BLEND"
+    log.info("alpha: %.1f%% of used texels see-through -> %s", share * 100, mat.alphaMode)
+    return mat.alphaMode
 
 
 def export_obj(glb_path: Path) -> list[Path]:
@@ -150,8 +179,9 @@ def export_obj(glb_path: Path) -> list[Path]:
     """
     import trimesh
 
-    scene = trimesh.load(glb_path, force="scene")
-    mesh = scene.to_geometry() if hasattr(scene, "to_geometry") else scene.dump(concatenate=True)
+    # process=False: merging vertices on a 500k-face mesh takes minutes and changes nothing here
+    scene = trimesh.load(glb_path, force="scene", process=False)
+    mesh = next(iter(scene.geometry.values()))
     folder = glb_path.with_suffix("")
     folder = folder.parent / (folder.name + "_obj")
     folder.mkdir(exist_ok=True)

@@ -9,8 +9,13 @@ Turn one picture into a textured 3D model (GLB) on your own PC. This tool instal
 same TRELLIS.2 4B image-to-3D model on 16GB consumer NVIDIA GPUs (RTX 30/40/50) with a one-click
 installer, on Windows and Ubuntu.
 
-> **Status: in development (milestone M1 of 4).** The installer and the PC check are being built.
-> Generation and the web interface come next. Nothing has been verified on a 16GB GPU yet.
+![examples](docs/examples/typewriter.jpg)
+![examples](docs/examples/mermaid.jpg)
+
+> **Status: in development (milestone M2 of 4).** Install, PC check and command-line generation
+> work. The web interface comes next. Measured so far: an RTX 3080 10GB on Windows 11 and an
+> RTX 4090 with a simulated 14.5 GiB cap ([benchmarks](docs/BENCHMARKS.md)). **No real 16GB card
+> has been tested yet.** More results: [examples](docs/examples/README.md).
 
 ## Requirements
 
@@ -49,6 +54,20 @@ trellis2 doctor        # Windows (in this folder)
 ```
 
 `[FAIL]` lines tell you what is wrong and what to do.
+
+## Make a model
+
+```
+trellis2 generate photo.jpg                      # Windows (in this folder)
+./trellis2.sh generate photo.jpg                 # Ubuntu
+trellis2 generate photo.jpg --seeds 3            # three variations to choose from
+trellis2 generate photo.jpg --preset quality     # texture 4096, more faces (slower)
+```
+
+Results go to `outputs/`: a `.glb` (with PBR materials) and an `_obj` folder (OBJ + texture),
+plus a report of time and graphics memory per stage. If graphics memory runs out, it tells you
+which stage failed and offers to retry with lower settings. The first run on a PC takes a few
+extra minutes. See [tips for input images](docs/examples/README.md#tips-for-input-images--좋은-입력-이미지).
 
 ## License
 

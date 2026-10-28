@@ -284,10 +284,22 @@ def run_hardware_checks(install_dir: Path, models_dir: Path) -> list[Check]:
     return checks
 
 
+def os_name() -> str:
+    """platform.release() says "10" on Windows 11; the build number tells them apart."""
+    system, release, version = platform.system(), platform.release(), platform.version()
+    if system == "Windows" and release == "10":
+        try:
+            if int(version.split(".")[2]) >= 22000:
+                release = "11"
+        except (IndexError, ValueError):
+            pass
+    return f"{system} {release} ({version})"
+
+
 def system_summary() -> dict[str, Any]:
     gpus = probe_gpus() or []
     return {
-        "os": f"{platform.system()} {platform.release()} ({platform.version()})",
+        "os": os_name(),
         "python": sys.version.split()[0],
         "gpus": [
             {

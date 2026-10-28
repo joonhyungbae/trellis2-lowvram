@@ -84,3 +84,16 @@ def test_worst():
     assert worst([ok]) == Status.OK
     assert worst([ok, warn]) == Status.WARN
     assert worst([ok, warn, check_ram(4)]) == Status.FAIL
+
+
+def test_windows_11_is_not_reported_as_10(monkeypatch):
+    import platform
+
+    from trellis2_lowvram.env_check import os_name
+
+    monkeypatch.setattr(platform, "system", lambda: "Windows")
+    monkeypatch.setattr(platform, "release", lambda: "10")
+    monkeypatch.setattr(platform, "version", lambda: "10.0.26100")
+    assert os_name().startswith("Windows 11")
+    monkeypatch.setattr(platform, "version", lambda: "10.0.19045")
+    assert os_name().startswith("Windows 10")

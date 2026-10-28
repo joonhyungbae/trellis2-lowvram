@@ -9,8 +9,12 @@
 같은 TRELLIS.2 4B 모델을 VRAM 16GB 급 NVIDIA 그래픽카드(RTX 30·40·50)에서 설치 한 번으로 쓰게 하는 것이 목표입니다.
 Windows 와 Ubuntu 를 지원합니다.
 
-> **현재 개발 중입니다(4단계 중 M1).** 설치 프로그램과 PC 점검을 만들고 있습니다.
-> 3D 생성과 웹 화면은 그다음 단계입니다. 16GB 그래픽카드에서는 아직 검증하지 않았습니다.
+![예시](docs/examples/typewriter.jpg)
+![예시](docs/examples/mermaid.jpg)
+
+> **현재 개발 중입니다(4단계 중 M2).** 설치, PC 점검, 명령어로 3D 만들기까지 됩니다. 웹 화면은 다음 단계입니다.
+> 지금까지 Windows 11 의 RTX 3080 10GB 와, RTX 4090 에 14.5GB 상한을 건 모의 환경에서 쟀습니다([측정 결과](docs/BENCHMARKS.md)).
+> **실제 16GB 그래픽카드에서는 아직 시험하지 않았습니다.** 더 많은 결과는 [예시](docs/examples/README.md)에 있습니다.
 
 ## 필요한 것
 
@@ -48,6 +52,19 @@ trellis2 doctor        # Windows (in this folder)
 ```
 
 `[FAIL]` 줄 아래에 무엇이 문제이고 무엇을 하면 되는지 나옵니다.
+
+## 3D 모델 만들기
+
+```
+trellis2 generate photo.jpg                      # Windows (이 폴더에서)
+./trellis2.sh generate photo.jpg                 # Ubuntu
+trellis2 generate photo.jpg --seeds 3            # 고를 수 있게 세 가지로
+trellis2 generate photo.jpg --preset quality     # 텍스처 4096, 면 수 많게(더 느림)
+```
+
+결과는 `outputs/` 폴더에 생깁니다. `.glb`(PBR 재질 포함)와 `_obj` 폴더(OBJ + 텍스처), 단계별 시간·그래픽 메모리 기록이 함께 나옵니다.
+그래픽 메모리가 모자라면 어느 단계에서 멈췄는지 알려 주고 설정을 낮춰 다시 할지 묻습니다. PC 에서 처음 실행할 때는 몇 분 더 걸립니다.
+[좋은 입력 이미지 고르는 법](docs/examples/README.md#tips-for-input-images--좋은-입력-이미지)도 참고해 주세요.
 
 ## 라이선스
 
