@@ -46,7 +46,7 @@ quantized model; never describe it that way.
 |---|---|---|
 | M0 | Research and design (`docs/PLAN.md`) | done, approved |
 | M1 | Installer, `doctor`, HF access, model download, CUDA extension wheels | done (pending maintainer review) |
-| M2 | Memory-managed generation CLI, per-stage VRAM report, OOM retry | **in progress**: generate/benchmark work on Linux and Windows; OOM retry path untested |
+| M2 | Memory-managed generation CLI, per-stage VRAM report, OOM retry | **in progress**: generate/benchmark work on Linux and Windows; OOM retry verified (simulated cap) |
 | M3 | Gradio web UI (upload, presets, multi-seed, preview, GLB/OBJ, ko/en) | not started |
 | M4 | READMEs, TROUBLESHOOTING, BENCHMARKS, THIRD_PARTY_LICENSES, v0.1.0 | not started |
 
@@ -67,7 +67,7 @@ Verified on Windows 11 (pc2: RTX 3080 10GB, driver 610.88, ZIP download without 
 Not verified yet:
 - `install.bat` double-click itself (tested via `install.ps1` over SSH; same script).
 - Interactive `login` prompt on a Windows console (token was passed with `--token`).
-- A real 16GB card. The OOM retry path (no OOM has happened yet: Windows spills into shared memory).
+- A real 16GB card. A real (not simulated) OOM; on Windows the driver spills into shared memory instead.
 - `generate` interactive OOM prompt; the web UI (M3).
 
 M2 measurements: docs/BENCHMARKS.md. Gallery: docs/examples (GLBs in release `examples-v1`,
@@ -141,10 +141,14 @@ Details and sources: `docs/PLAN.md` section 2.
 - GLB texture baking needs nvdiffrast (non-commercial license). nvdiffrec is not used.
 - FlexGEMM kernels are Triton; Windows uses `triton-windows`.
 
+Verified OOM handling: `generate --pipeline 1024_cascade --vram-cap 7 -y` on the 4090 hit OOM in
+export_glb, retried with texture 1024, hit OOM in texture_decoder, retried at 512, succeeded.
+
 ## 7. Next steps
 
 1. Finish the extension wheel builds (local Linux, then Actions for Windows/Linux); publish to a
    release; fill `wheels/manifest.json`; full `doctor` must pass on Linux.
 2. Hand `install.bat` to a Windows tester; fix from their `logs/install-*.log`.
-3. M2: `memory.py` (StageMonitor), `pipeline.py` (selective loading, stage wrappers, OOM),
-   `cli generate/benchmark`, `scripts/gpu_smoke_test.py`, simulated 14.5GB cap.
+3. M2 leftovers: after an OOM in export, retry only the export with the mesh already made
+   (today the whole generation reruns). Measure a real 16GB card when one is available.
+4. M3: Gradio web UI on top of `generate.run_job` (presets, seeds gallery, Model3D preview, ko/en).
