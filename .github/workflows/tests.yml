@@ -1,0 +1,28 @@
+name: tests
+on:
+  push:
+  pull_request:
+jobs:
+  cpu:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.8"
+      # Unit tests do not need torch; install only what they import.
+      - run: uv run --no-project --python 3.11 --with pytest python -m pytest -q
+        env:
+          PYTHONPATH: src
+      - run: uvx ruff@0.14.0 check src tests wheels scripts && uvx ruff@0.14.0 format --check src tests wheels scripts
+      # install.bat runs Windows PowerShell 5.1: parse the script with it (and pwsh) to catch syntax errors.
+      - name: Parse install.ps1
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $e = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD\scripts\install.ps1", [ref]$null, [ref]$e) | Out-Null
+          if ($e) { $e; exit 1 }

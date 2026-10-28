@@ -1,0 +1,78 @@
+name: build-wheels
+# Builds the four CUDA extension wheels from wheels/sources.toml (no GPU needed to compile).
+# Run manually; with a tag, the wheels are attached to that GitHub Release.
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to upload to (empty: artifacts only)"
+        required: false
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            key: win_amd64
+          - os: ubuntu-22.04
+            key: linux_x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.8"
+      - name: Free disk space (Linux)
+        if: runner.os == 'Linux'
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+      - uses: Jimver/cuda-toolkit@v0.2.24
+        id: cuda
+        with:
+          cuda: "12.8.1"
+          method: ${{ runner.os == 'Windows' && 'local' || 'network' }}
+          linux-local-args: '["--toolkit"]'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      # Windows builds run in PowerShell: in Git bash, Git's coreutils link.exe shadows MSVC's linker.
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          MAX_JOBS: "4"
+          CUDA_HOME: ${{ steps.cuda.outputs.CUDA_PATH }}
+        run: |
+          nvcc --version
+          uv run --no-project --python 3.11 python wheels/build.py --out dist/wheels --work build/ext-src | tee build.log
+          grep '^{"file"' build.log > dist/wheels/${{ matrix.key }}.jsonl
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          MAX_JOBS: "4"
+          CUDA_HOME: ${{ steps.cuda.outputs.CUDA_PATH }}
+        run: |
+          nvcc --version
+          (Get-Command link.exe).Source
+          uv run --no-project --python 3.11 python wheels/build.py --out dist/wheels --work build/ext-src | Tee-Object build.log
+          $code = $LASTEXITCODE
+          Select-String -Path build.log -Pattern '^\{"file"' | ForEach-Object { $_.Line } | Set-Content dist/wheels/${{ matrix.key }}.jsonl
+          exit $code
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wheels-${{ matrix.key }}
+          path: dist/wheels/
+      - name: Upload to release
+        if: inputs.release_tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${{ inputs.release_tag }}" >/dev/null 2>&1 || \
+            gh release create "${{ inputs.release_tag }}" --prerelease --title "${{ inputs.release_tag }}" \
+              --notes "Prebuilt CUDA extension wheels. Sources: wheels/sources.toml. nvdiffrast is under the NVIDIA Source Code License (non-commercial); its license text is inside the wheel."
+          gh release upload "${{ inputs.release_tag }}" dist/wheels/*.whl dist/wheels/*.jsonl --clobber

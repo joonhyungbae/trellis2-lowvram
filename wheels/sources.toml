@@ -1,0 +1,31 @@
+# Pinned sources of the CUDA extensions. Wheels are built from exactly these commits by
+# wheels/build.py (locally) and .github/workflows/build-wheels.yml (for releases).
+# Licenses: FlexGEMM MIT, CuMesh MIT, O-Voxel MIT (part of TRELLIS.2),
+# nvdiffrast NVIDIA Source Code License (non-commercial; redistribution allowed with the license text).
+
+torch = "2.8.0"
+cuda_index = "https://download.pytorch.org/whl/cu128"
+# RTX 30 (8.6), A100 (8.0), RTX 40 (8.9), RTX 50 (12.0); PTX for anything newer
+cuda_arch_list = "8.0;8.6;8.9;12.0+PTX"
+
+[[ext]]
+name = "flex_gemm"
+repo = "https://github.com/JeffreyXiang/FlexGEMM.git"
+commit = "6dd94a859c26ee8246888502eada3dd8ad85532e"
+
+[[ext]]
+name = "cumesh"
+repo = "https://github.com/JeffreyXiang/CuMesh.git"
+commit = "12289e1062f0603f2f0d0771b02e1395d247f26f"
+
+[[ext]]
+name = "o_voxel"
+repo = "https://github.com/microsoft/TRELLIS.2.git"
+commit = "75fbf0183001ed9876c8dbb35de6b68552ee08bd"
+subdir = "o-voxel"
+license_from = "LICENSE"  # o-voxel/ has none; TRELLIS.2 root LICENSE (MIT) applies
+
+[[ext]]
+name = "nvdiffrast"
+repo = "https://github.com/NVlabs/nvdiffrast.git"
+commit = "253ac4fcea7de5f396371124af597e6cc957bfae"  # tag v0.4.0
