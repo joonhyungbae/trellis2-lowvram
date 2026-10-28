@@ -171,5 +171,8 @@
   "ui.need_models": "이 해상도에 필요한 모델 파일을 아직 받지 않았습니다. 페이지 위쪽 '준비 상태'를 열고 '모델 받기'를 눌러 주세요.",
   "install.done": "설치를 마쳤습니다. 바탕화면의 'trellis2-lowvram'(또는 이 폴더의 run.bat)을 더블클릭하면 웹 화면이 열립니다. 사진을 make3d.bat 위에 끌어다 놓아도 됩니다.",
   "install.done_need_models": "모델 파일만 빼고 설치를 마쳤습니다. DINOv3 승인을 기다리는 동안에는 정상입니다. 승인 메일을 받은 뒤 바탕화면의 'trellis2-lowvram'(또는 run.bat)을 더블클릭하고 페이지 위쪽의 '모델 받기'를 누르세요.",
-  "install.shortcut": "바탕화면에 바로가기를 만들었습니다: {path}"
+  "install.shortcut": "바탕화면에 바로가기를 만들었습니다: {path}",
+  "ui.already_running": "웹 화면이 이미 열려 있어서 새로 띄우지 않습니다(모델을 메모리에 두 번 올리게 됩니다). 브라우저로 엽니다: {url}",
+  "gen.ui_running": "참고: 웹 화면도 켜져 있습니다({url}). 둘 다 모델을 메모리에 올리므로 RAM 32GB PC 에서는 아주 느려질 수 있습니다. 느리면 웹 화면 창을 닫거나 웹 페이지에서 만들어 주세요.",
+  "ui.fix.hf.login": "Hugging Face 계정을 만들고 DINOv3 사용 신청({url})을 한 뒤, 'Read' 토큰을 만들어 아래 칸에 붙여 넣으세요."
 }

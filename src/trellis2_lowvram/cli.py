@@ -265,6 +265,10 @@ def cmd_generate(args: argparse.Namespace, paths) -> int:
     pipeline_type = resolve(args.preset, pipeline_type=args.pipeline).pipeline_type
     if not _ready_to_generate(pipeline_type):
         return 1
+    from .ui.running import running_url
+
+    if url := running_url():  # both would hold every model in RAM
+        say(t("gen.ui_running", url=url))
     _prepare_gpu()
     from .memory import StageMonitor
     from .pipeline import Generator
@@ -339,7 +343,18 @@ def cmd_benchmark(args: argparse.Namespace, paths) -> int:
 
 
 def cmd_ui(args: argparse.Namespace, paths) -> int:
+    import webbrowser
+
     import torch
+
+    from .ui.running import running_url
+
+    url = running_url()
+    if url and not args.port and not args.share:  # e.g. the desktop icon double-clicked again
+        say(t("ui.already_running", url=url))
+        if not args.no_browser:
+            webbrowser.open(url)
+        return 0
 
     if not torch.cuda.is_available():  # the page itself works; generation will not
         say(t("error.no_gpu"))
@@ -433,7 +448,9 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     set_lang(args.lang)
     log_path = setup_logging(paths.logs, args.verbose)
-    log.info("trellis2-lowvram %s argv=%s", __version__, sys.argv)
+    # Logs are attached to public issues: never write a token passed with --token.
+    argv = ["***" if "hf_" in a else a for a in sys.argv]  # --token hf_.. or --token=hf_..
+    log.info("trellis2-lowvram %s argv=%s", __version__, argv)
     try:
         return args.func(args, paths)
     except KeyboardInterrupt:

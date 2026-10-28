@@ -2,6 +2,7 @@
 
 Runs locally on 127.0.0.1. `share=True` (a public gradio.live link) only when the user asks for it.
 The pipeline is loaded once, on the first generation, and reused; one generation runs at a time.
+'Stop' takes effect at the next stage boundary: upstream stages cannot be interrupted midway.
 """
 
 from __future__ import annotations
@@ -19,12 +20,19 @@ import gradio as gr
 
 from .. import i18n
 from ..config import get_paths
+from ..errors import explain
+from ..images import register_heif
 from ..presets import PRESETS, Settings, lower
+from . import running
 
 log = logging.getLogger(__name__)
 
 MAX_SEEDS = 4
 PRESET_KEYS = ("fast", "balanced", "quality")
+
+
+class Cancelled(Exception):
+    """Raised at a stage boundary after the user pressed 'Stop'."""
 
 
 def tr(lang: str, key: str, **kw: Any) -> str:
@@ -40,6 +48,7 @@ class Runner:
         self.lock = threading.Lock()
         self.progress: tuple[int, int, str] | None = None  # (done, total, part) while loading
         self.load_seconds: float | None = None
+        self.cancel = threading.Event()
 
     def _on_load(self, done: int, total: int, part: str) -> None:
         self.progress = (done, total, part)
@@ -83,24 +92,47 @@ class Runner:
 
 
 MARK = {"ok": "✅", "warn": "⚠️", "fail": "❌", "skip": "·"}
+# The page has its own token box and download button; point there instead of at a command.
+UI_FIX = {"fix.hf.login": "ui.fix.hf.login"}
 
 
-def readiness(lang: str) -> tuple[str, bool, bool, bool]:
-    """Markdown report, all_ok, token needed, models needed."""
+# Checks take ~5 s on their own but 25 s+ while the models load in the background, which is
+# exactly when the page first opens. launch() runs them once before that; the first page view
+# reuses the result, and 'Check again', token and download always check afresh.
+_checked: dict[str, tuple[float, list]] = {}  # pipeline type -> (time, checks)
+CHECK_REUSE_SECONDS = 300
+
+
+def collect_checks(pipeline_type: str = "512", max_age: float = 0) -> list:
     from ..cli import _access_check, _models_check
     from ..config import REPO_ROOT
-    from ..env_check import Status, check_software, run_hardware_checks, worst
+    from ..env_check import check_software, run_hardware_checks
+
+    hit = _checked.get(pipeline_type)
+    if hit and time.monotonic() - hit[0] <= max_age:
+        return hit[1]
+    checks = run_hardware_checks(REPO_ROOT, get_paths().models) + check_software()
+    checks += [_access_check(), _models_check(pipeline_type)]
+    _checked[pipeline_type] = (time.monotonic(), checks)
+    return checks
+
+
+def readiness(
+    lang: str, pipeline_type: str = "512", max_age: float = 0
+) -> tuple[str, bool, bool, bool]:
+    """Markdown report, all_ok, token needed, models needed (for the chosen resolution)."""
+    from ..env_check import Status, worst
 
     i18n.set_lang(lang)
-    checks = run_hardware_checks(REPO_ROOT, get_paths().models) + check_software()
-    hf = _access_check()
-    models = _models_check()
-    checks += [hf, models]
+    checks = collect_checks(pipeline_type, max_age)
+    by_id = {c.id: c for c in checks}
+    hf, models = by_id["hf_access"], by_id["models"]
     lines = []
     for c in checks:
         lines.append(f"{MARK[c.status.value]} {i18n.t(c.msg, **c.params)}")
         if c.fix and c.status in (Status.WARN, Status.FAIL):
-            lines.append(f"&nbsp;&nbsp;&nbsp;&nbsp;→ {i18n.t(c.fix, **c.params)}")
+            fix = UI_FIX.get(c.fix, c.fix)
+            lines.append(f"&nbsp;&nbsp;&nbsp;&nbsp;→ {i18n.t(fix, **c.params)}")
     ok = worst(checks) != Status.FAIL
     head = i18n.t("ui.preflight.ok") if ok else i18n.t("ui.preflight.problem")
     return (
@@ -114,6 +146,8 @@ def readiness(lang: str) -> tuple[str, bool, bool, bool]:
 def vram_line(lang: str) -> str:
     import torch
 
+    if not torch.cuda.is_available():  # the readiness panel explains why
+        return ""
     free, total = torch.cuda.mem_get_info()
     return tr(
         lang, "ui.vram", used=f"{(total - free) / 1024**3:.1f}", total=f"{total / 1024**3:.1f}"
@@ -123,7 +157,7 @@ def vram_line(lang: str) -> str:
 def build(runner: Runner, default_lang: str) -> gr.Blocks:
     import torch
 
-    gpu = torch.cuda.get_device_name(0)
+    gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "-"
     labels: list[tuple[Any, str, str]] = []  # (component, i18n key, attribute) for language switch
 
     def L(component, key: str, attr: str = "label"):
@@ -215,7 +249,9 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
                         "ui.faces",
                     )
                     steps = gr.State(12)
-                run = L(gr.Button(t("ui.run"), variant="primary"), "ui.run", "value")
+                with gr.Row():
+                    run = L(gr.Button(t("ui.run"), variant="primary", scale=3), "ui.run", "value")
+                    stop = L(gr.Button(t("ui.stop"), variant="stop", scale=1), "ui.stop", "value")
                 status = gr.Markdown(vram_line(default_lang))
             with gr.Column(scale=2):
                 with gr.Row():
@@ -268,18 +304,15 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
         lang.change(on_lang, lang, [c for c, _, _ in labels])
 
         def on_run(img, rm_bg, p, sd, n, res, tex, guid, fc, st, lg):
+            from ..models import missing_files
+
             hidden = [gr.update(visible=(i == 0), value=None) for i in range(MAX_SEEDS)]
+            cleared = (*hidden, None, None, "", gr.skip(), gr.skip(), gr.skip())
             if not img:
-                yield (
-                    tr(lg, "ui.need_image"),
-                    *hidden,
-                    None,
-                    None,
-                    "",
-                    gr.skip(),
-                    gr.skip(),
-                    gr.skip(),
-                )
+                yield (tr(lg, "ui.need_image"), *cleared)
+                return
+            if missing_files(res):
+                yield (tr(lg, "ui.need_models"), *cleared)
                 return
             s = replace(
                 PRESETS[p],
@@ -292,22 +325,29 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
             seeds = [int(sd) + i for i in range(int(n))]
             out_dir = get_paths().outputs / time.strftime("%Y%m%d-%H%M%S")
             events: queue.Queue = queue.Queue()
-            box: dict[str, Any] = {}
+            box: dict[str, Any] = {"results": []}
+            runner.cancel.clear()
+
+            def on_stage(stage: str) -> None:
+                if runner.cancel.is_set():
+                    raise Cancelled
+                events.put(stage)
 
             def work():
-                from PIL import Image
-
                 from ..generate import make_one
+                from ..images import open_image
 
+                gen = None
                 try:
                     with runner.lock:
                         events.put("loading")
                         gen = runner.generator(s.pipeline_type)
-                        gen.monitor.on_stage = events.put
-                        source = Image.open(img)
+                        gen.monitor.on_stage = on_stage
+                        source = open_image(Path(img))
                         stem = Path(img).stem[:40]
-                        box["results"] = []
                         for seed in seeds:
+                            if runner.cancel.is_set():
+                                raise Cancelled
                             events.put(f"seed:{seed}")
                             box["results"].append(
                                 make_one(
@@ -321,10 +361,17 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
                                     obj=True,
                                 )
                             )
+                except Cancelled:
+                    box["cancelled"] = True
+                    if gen is not None:
+                        gen.offload_all()
                 except Exception as e:  # shown to the user, details in the log
                     log.exception("generation failed")
                     box["error"] = e
                 finally:
+                    if gen is not None:
+                        gen.monitor.on_stage = None
+                    runner.progress = None  # models loaded on demand (1024) are done loading
                     events.put(None)
 
             th = threading.Thread(target=work, daemon=True)
@@ -341,39 +388,29 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
                     seed_now = int(ev[5:])
                 elif ev:
                     stage = ev
-                if stage == "loading":
-                    yield (runner.status(lg), *[gr.skip()] * (MAX_SEEDS + 6))
-                    continue
-                stage_txt = tr(lg, f"stage.{stage}")
-                msg = (
-                    tr(
-                        lg,
-                        "ui.progress",
-                        seed=seed_now,
-                        stage=stage_txt,
-                        seconds=int(time.perf_counter() - t0),
+                if runner.cancel.is_set():
+                    msg = tr(lg, "ui.stopping")
+                elif stage == "loading":
+                    msg = runner.status(lg)
+                else:
+                    msg = (
+                        tr(
+                            lg,
+                            "ui.progress",
+                            seed=seed_now,
+                            stage=tr(lg, f"stage.{stage}"),
+                            seconds=int(time.perf_counter() - t0),
+                        )
+                        + "  \n"
+                        + vram_line(lg)
                     )
-                    + "  \n"
-                    + vram_line(lg)
-                )
                 # status only; views, previews, files, report and the 3 settings stay as they are
                 yield (msg, *[gr.skip()] * (MAX_SEEDS + 6))
             th.join()
 
-            if "error" in box:
-                yield (
-                    tr(lg, "ui.error", log=get_paths().logs),
-                    *hidden,
-                    None,
-                    None,
-                    "",
-                    gr.skip(),
-                    gr.skip(),
-                    gr.skip(),
-                )
-                return
             from ..preview import render
 
+            # Seeds finished before an error or 'Stop' are still shown and downloadable.
             views_out, downloads, lines, proposal, sheets = [], [], [], None, []
             for attempts in box["results"]:
                 last = attempts[-1]
@@ -404,9 +441,19 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
             views_out += [gr.update(value=None, visible=False)] * (MAX_SEEDS - n_ok)
             if n_ok == 0:
                 views_out[0] = gr.update(value=None, visible=True)
-            done = tr(lg, "ui.done", n=n_ok, total=len(seeds), path=out_dir)
+            parts = []
+            if "error" in box:
+                x = explain(box["error"])
+                if x is None:
+                    parts.append(tr(lg, "ui.error", log=get_paths().logs))
+                else:
+                    parts.append(tr(lg, x.msg, **x.params) + "  \n→ " + tr(lg, x.fix, **x.params))
+            if box.get("cancelled"):
+                parts.append(tr(lg, "ui.cancelled"))
+            if n_ok or not parts:
+                parts.append(tr(lg, "ui.done", n=n_ok, total=len(seeds), path=out_dir))
             if proposal is not None:
-                done += "  \n" + tr(lg, "ui.oom.proposal")
+                parts.append(tr(lg, "ui.oom.proposal"))
                 upd = (
                     gr.update(value=proposal.pipeline_type),
                     gr.update(value=proposal.texture_size),
@@ -415,13 +462,16 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
             else:
                 upd = (gr.skip(), gr.skip(), gr.skip())
             yield (
-                done + "  \n" + vram_line(lg),
+                "  \n".join([*parts, vram_line(lg)]),
                 *views_out,
                 sheets,
                 downloads,
                 "\n".join(lines),
                 *upd,
             )
+
+        def on_stop() -> None:
+            runner.cancel.set()
 
         def on_page_load(lg: str):
             while runner.progress is not None or (runner.gen is None and runner.lock.locked()):
@@ -431,8 +481,8 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
 
         demo.load(on_page_load, lang, status)
 
-        def evaluate(lg: str, note: str = ""):
-            md, ok, need_token, need_models = readiness(lg)
+        def evaluate(lg: str, res: str = "512", note: str = "", max_age: float = 0):
+            md, ok, need_token, need_models = readiness(lg, res, max_age)
             if note:
                 md = f"{note}\n\n" + md
             return (
@@ -443,15 +493,21 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
             )
 
         pre_out = [pre_md, token_row, download_btn, pre_box]
-        demo.load(evaluate, lang, pre_out)
-        recheck_btn.click(evaluate, lang, pre_out)
 
-        def on_token(tok: str, lg: str):
+        def evaluate_recent(lg: str, res: str):
+            return evaluate(lg, res, max_age=CHECK_REUSE_SECONDS)
+
+        demo.load(evaluate_recent, [lang, resolution], pre_out)
+        recheck_btn.click(evaluate, [lang, resolution], pre_out)
+        # 1024 needs more model files; the panel then offers to download them
+        resolution.change(evaluate, [lang, resolution], pre_out)
+
+        def on_token(tok: str, lg: str, res: str):
             from ..hf_access import Access, check_access, save_token
 
             tok = (tok or "").strip()
             if not tok:
-                return evaluate(lg, tr(lg, "login.empty"))
+                return evaluate(lg, res, tr(lg, "login.empty"))
             a = check_access(token=tok)
             if a in (Access.OK, Access.NOT_APPROVED, Access.TOKEN_NO_GATED):
                 save_token(tok)  # saved even when not approved yet, so later checks use it
@@ -462,16 +518,16 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
             }.get(a, tr(lg, "login.saved"))
             if a == Access.OK:
                 runner.preload()
-            return evaluate(lg, note)
+            return evaluate(lg, res, note)
 
-        token_btn.click(on_token, [token, lang], pre_out)
+        token_btn.click(on_token, [token, lang, resolution], pre_out)
 
-        def on_download(lg: str):
+        def on_download(lg: str, res: str):
             from ..hf_access import Access, check_access
             from ..models import download
 
             if check_access() != Access.OK:
-                yield evaluate(lg, tr(lg, "ui.download.need_access"))
+                yield evaluate(lg, res, tr(lg, "ui.download.need_access"))
                 return
             prog: dict[str, Any] = {"p": (0, 1, "")}
             box: dict[str, Any] = {}
@@ -479,7 +535,8 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
             def work():
                 try:
                     download(
-                        ("512",), on_file=lambda d, n, name: prog.__setitem__("p", (d, n, name))
+                        tuple(dict.fromkeys(("512", res))),
+                        on_file=lambda d, n, name: prog.__setitem__("p", (d, n, name)),
                     )
                 except Exception as e:
                     log.exception("download failed")
@@ -493,13 +550,13 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
                 yield (msg, gr.skip(), gr.update(interactive=False), gr.skip())
                 time.sleep(1.0)
             if "error" in box:
-                yield evaluate(lg, tr(lg, "download.failed"))
+                yield evaluate(lg, res, tr(lg, "download.failed"))
                 return
             runner.preload()
-            out = evaluate(lg, tr(lg, "ui.download.done"))
+            out = evaluate(lg, res, tr(lg, "ui.download.done"))
             yield (out[0], out[1], gr.update(visible=False, interactive=True), out[3])
 
-        download_btn.click(on_download, lang, pre_out)
+        download_btn.click(on_download, [lang, resolution], pre_out)
 
         run.click(
             on_run,
@@ -519,19 +576,29 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
             [status, *views, previews, files, report, resolution, texture, faces],
             concurrency_limit=1,
         )
+        # Not queued behind the running generation; the worker checks the flag between stages.
+        stop.click(on_stop, None, None, queue=False)
     return demo
 
 
 def launch(
     share: bool = False, port: int | None = None, lang: str | None = None, browser: bool = True
 ) -> None:
+    register_heif()  # Gradio opens uploads with Pillow; this lets iPhone HEIC photos through
+    collect_checks()  # before the model preload competes for the CPU (see _checked)
     runner = Runner()
     runner.preload()  # start loading now so the first click does not wait for it
     demo = build(runner, lang or i18n.get_lang())
-    demo.queue(default_concurrency_limit=1).launch(
+    _, url, _ = demo.queue(default_concurrency_limit=1).launch(
         server_name="127.0.0.1",
         server_port=port,
         share=share,
         inbrowser=browser,
         allowed_paths=[str(get_paths().outputs)],
+        prevent_thread_lock=True,
     )
+    running.remember(url)
+    try:
+        demo.block_thread()
+    finally:
+        running.forget()

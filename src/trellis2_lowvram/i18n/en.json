@@ -171,5 +171,8 @@
   "ui.need_models": "The model files for this resolution are not downloaded yet. Open 'Readiness' at the top of the page and press 'Download models'.",
   "install.done": "Installation finished. Double-click 'trellis2-lowvram' on the desktop (or run.bat in this folder) to open the web interface. You can also drag pictures onto make3d.bat.",
   "install.done_need_models": "Installation finished except the model files. This is normal while DINOv3 access is waiting for approval. After the approval email arrives, double-click 'trellis2-lowvram' on the desktop (or run.bat) and press 'Download models' at the top of the page.",
-  "install.shortcut": "Made a shortcut on the desktop: {path}"
+  "install.shortcut": "Made a shortcut on the desktop: {path}",
+  "ui.already_running": "The web interface is already open, so it is not started again (that would load every model into memory twice). Opening it in the browser: {url}",
+  "gen.ui_running": "Note: the web interface is also running ({url}). Both keep the models in memory, so this can be very slow on a 32GB PC. If it is slow, close the web interface window or make the model in the web page instead.",
+  "ui.fix.hf.login": "Create a Hugging Face account, request DINOv3 access ({url}), then create a 'Read' token and paste it into the box below."
 }
