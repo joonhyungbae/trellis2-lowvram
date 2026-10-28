@@ -63,6 +63,8 @@ Verified on Windows 11 (pc2: RTX 3080 10GB, driver 610.88, ZIP download without 
 - Full `doctor` passes except the expected 10GB VRAM warning.
 - Upstream pipeline, o_voxel, cumesh, flex_gemm import; nvdiffrast CUDA context opens.
 - Step-5 failure guidance shown correctly when the manifest was still empty.
+- `make3d.bat` (drag-and-drop path as argument) with a Korean path containing spaces, while the
+  web UI was running in another window: ok, 97.6 s.
 
 Not verified yet:
 - `install.bat` double-click itself (tested via `install.ps1` over SSH; same script).
@@ -87,6 +89,10 @@ Gotchas found so far:
 - Transparent containers: only the shell is generated; contents seen through glass are lost.
 - Windows NVIDIA drivers spill to shared system memory instead of OOM (slow, not an error).
 - Gradio sends usage analytics by default; `config.prepare_environment` sets GRADIO_ANALYTICS_ENABLED=False.
+- `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` is ignored on Windows ("not supported on this
+  platform" warning). All Windows measurements in BENCHMARKS were taken without it.
+- A sync that fails midway (old shim, locked .exe) can leave the CUDA extensions uninstalled;
+  `doctor` reports it and `install` / `trellis2 install-extensions` fixes it.
 - Shims (`trellis2.bat/.sh`) use `uv run --no-sync`: a sync while the web UI runs fails on Windows
   (`trellis2-lowvram.exe` is locked, os error 32). Only install/update change the environment.
 - `pkill -f <pattern>` also kills the shell running it (its command line contains the pattern); kill by PID.
