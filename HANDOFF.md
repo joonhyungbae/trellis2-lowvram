@@ -45,7 +45,7 @@ quantized model; never describe it that way.
 | Milestone | Scope | State |
 |---|---|---|
 | M0 | Research and design (`docs/PLAN.md`) | done, approved |
-| M1 | Installer, `doctor`, HF access, model download, CUDA extension wheels | **in progress** |
+| M1 | Installer, `doctor`, HF access, model download, CUDA extension wheels | done (pending maintainer review) |
 | M2 | Memory-managed generation CLI, per-stage VRAM report, OOM retry | not started |
 | M3 | Gradio web UI (upload, presets, multi-seed, preview, GLB/OBJ, ko/en) | not started |
 | M4 | READMEs, TROUBLESHOOTING, BENCHMARKS, THIRD_PARTY_LICENSES, v0.1.0 | not started |
@@ -58,11 +58,16 @@ Verified so far (Linux, RTX 4090):
 - Install failure guidance: a forced step-3 failure prints the step message, retry hint and log path.
 - 21 CPU unit tests pass locally and in GitHub Actions (Ubuntu and Windows).
 
+Verified on Windows 11 (pc2: RTX 3080 10GB, driver 610.88, ZIP download without git, C:\trellis2-lowvram):
+- `scripts/install.ps1` steps 1-6 end to end, including the `wheels-v1` extension wheels and models.
+- Full `doctor` passes except the expected 10GB VRAM warning.
+- Upstream pipeline, o_voxel, cumesh, flex_gemm import; nvdiffrast CUDA context opens.
+- Step-5 failure guidance shown correctly when the manifest was still empty.
+
 Not verified yet:
-- Windows wheels (Actions `build-wheels` being fixed) and anything on Windows beyond unit tests:
-  `install.bat` will be tried on a student's PC.
-- A fresh-clone `install.sh` run end to end (needs `wheels/manifest.json` filled from the release).
-- Any generation at all (M2).
+- `install.bat` double-click itself (tested via `install.ps1` over SSH; same script).
+- Interactive `login` prompt on a Windows console (token was passed with `--token`).
+- Any generation at all, on any OS (M2). Triton kernels compile on first use (untested on Windows).
 
 Gotchas found so far:
 - uv must use its own managed Python (`python-preference = "only-managed"`): a conda Python ships
