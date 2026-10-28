@@ -12,7 +12,7 @@ Windows 와 Ubuntu 를 지원합니다.
 ![예시](docs/examples/typewriter.jpg)
 ![예시](docs/examples/mermaid.jpg)
 
-> **현재 개발 중입니다(4단계 중 M2).** 설치, PC 점검, 명령어로 3D 만들기까지 됩니다. 웹 화면은 다음 단계입니다.
+> **현재 개발 중입니다(4단계 중 M3).** 설치, PC 점검, 명령어로 3D 만들기, 웹 화면까지 됩니다.
 > 지금까지 Windows 11 의 RTX 3080 10GB 와, RTX 4090 에 14.5GB 상한을 건 모의 환경에서 쟀습니다([측정 결과](docs/BENCHMARKS.md)).
 > **실제 16GB 그래픽카드에서는 아직 시험하지 않았습니다.** 더 많은 결과는 [예시](docs/examples/README.md)에 있습니다.
 
@@ -54,6 +54,14 @@ trellis2 doctor        # Windows (in this folder)
 `[FAIL]` 줄 아래에 무엇이 문제이고 무엇을 하면 되는지 나옵니다.
 
 ## 3D 모델 만들기
+
+**웹 화면:** `run.bat` 을 더블클릭합니다(Ubuntu 는 `./run.sh`). 브라우저에 이 PC 안에서만 열리는 페이지가 뜹니다.
+사진을 올리고 품질을 고른 뒤 **3D 만들기**를 누르면, 모델을 돌려 보고 GLB·OBJ 로 내려받을 수 있습니다.
+seed 를 여러 개 한 번에 만들어 나란히 비교할 수 있고, 위쪽에서 한국어/English 를 바꿉니다.
+페이지는 이 PC(127.0.0.1)에서만 열리며, 공개 링크는 `run.bat --share` 로 직접 요청할 때만 만듭니다.
+돌려 보는 3D 화면은 WebGPU 가 되는 브라우저(최신 Chrome, Edge)가 필요합니다. 미리보기 이미지와 내려받기는 어느 브라우저에서나 됩니다.
+
+**명령어:**
 
 ```
 trellis2 generate photo.jpg                      # Windows (이 폴더에서)

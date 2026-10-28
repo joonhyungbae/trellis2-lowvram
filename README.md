@@ -12,8 +12,8 @@ installer, on Windows and Ubuntu.
 ![examples](docs/examples/typewriter.jpg)
 ![examples](docs/examples/mermaid.jpg)
 
-> **Status: in development (milestone M2 of 4).** Install, PC check and command-line generation
-> work. The web interface comes next. Measured so far: an RTX 3080 10GB on Windows 11 and an
+> **Status: in development (milestone M3 of 4).** Install, PC check, command-line generation and
+> the web interface work. Measured so far: an RTX 3080 10GB on Windows 11 and an
 > RTX 4090 with a simulated 14.5 GiB cap ([benchmarks](docs/BENCHMARKS.md)). **No real 16GB card
 > has been tested yet.** More results: [examples](docs/examples/README.md).
 
@@ -56,6 +56,15 @@ trellis2 doctor        # Windows (in this folder)
 `[FAIL]` lines tell you what is wrong and what to do.
 
 ## Make a model
+
+**Web interface:** double-click `run.bat` (Ubuntu: `./run.sh`). Your browser opens a local page:
+upload a picture, pick a quality, press **Make 3D**, turn the model around, download GLB / OBJ.
+Several seeds can be made at once and compared side by side. Korean / English switch at the top.
+The page stays on this PC (127.0.0.1); `run.bat --share` makes a public link only if you ask.
+The rotatable 3D view needs a browser with WebGPU (current Chrome or Edge); preview images and
+downloads work in any browser.
+
+**Command line:**
 
 ```
 trellis2 generate photo.jpg                      # Windows (in this folder)

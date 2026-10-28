@@ -47,7 +47,7 @@ quantized model; never describe it that way.
 | M0 | Research and design (`docs/PLAN.md`) | done, approved |
 | M1 | Installer, `doctor`, HF access, model download, CUDA extension wheels | done (pending maintainer review) |
 | M2 | Memory-managed generation CLI, per-stage VRAM report, OOM retry | **in progress**: generate/benchmark work on Linux and Windows; OOM retry verified (simulated cap) |
-| M3 | Gradio web UI (upload, presets, multi-seed, preview, GLB/OBJ, ko/en) | not started |
+| M3 | Gradio web UI (upload, presets, multi-seed, preview, GLB/OBJ, ko/en) | **in progress**: works in headless Chrome on Linux; real-browser 3D view on Windows unverified |
 | M4 | READMEs, TROUBLESHOOTING, BENCHMARKS, THIRD_PARTY_LICENSES, v0.1.0 | not started |
 
 Verified so far (Linux, RTX 4090):
@@ -68,7 +68,8 @@ Not verified yet:
 - `install.bat` double-click itself (tested via `install.ps1` over SSH; same script).
 - Interactive `login` prompt on a Windows console (token was passed with `--token`).
 - A real 16GB card. A real (not simulated) OOM; on Windows the driver spills into shared memory instead.
-- `generate` interactive OOM prompt; the web UI (M3).
+- `generate` interactive OOM prompt. The web UI's rotatable Model3D view in a real browser
+  (Gradio 6 Model3D uses Babylon.js WebGPU; headless Chrome has no WebGPU and cannot screenshot it).
 
 M2 measurements: docs/BENCHMARKS.md. Gallery: docs/examples (GLBs in release `examples-v1`,
 regenerate with `scripts/make_examples.py`, previews with `trellis2_lowvram.preview`).
@@ -85,6 +86,8 @@ Gotchas found so far:
   switches to BLEND when >1% of used texels are see-through (glass, jellyfish).
 - Transparent containers: only the shell is generated; contents seen through glass are lost.
 - Windows NVIDIA drivers spill to shared system memory instead of OOM (slow, not an error).
+- Gradio sends usage analytics by default; `config.prepare_environment` sets GRADIO_ANALYTICS_ENABLED=False.
+- `pkill -f <pattern>` also kills the shell running it (its command line contains the pattern); kill by PID.
 - `trimesh.load(glb)` with default `process=True` takes minutes on these meshes; use `process=False`.
 
 ## 4. Map
@@ -93,6 +96,7 @@ Gotchas found so far:
 install.sh / install.bat -> scripts/install.ps1   one-click install (uv, Python 3.11, deps, wheels, HF, models)
 update.sh / update.bat                           pull + rerun install
 trellis2.sh / trellis2.bat                       user shim: runs `trellis2-lowvram <cmd>` with the installed uv env
+run.sh / run.bat                                 opens the web UI (`trellis2 ui`)
 pyproject.toml, uv.lock                          Python deps (torch 2.8.0+cu128, xformers, transformers 4.57.3)
 third_party/TRELLIS.2/                           upstream @ 75fbf01 (submodule; zip fallback without git)
 src/trellis2_lowvram/
@@ -102,7 +106,13 @@ src/trellis2_lowvram/
   hf_access.py     token stored under our HF_HOME; DINOv3 gated-access check
   models.py        which weight files each pipeline type needs; downloads only those
   extensions.py    installs prebuilt CUDA wheels listed in wheels/manifest.json (sha256 verified)
-  cli.py           doctor | login | download | install-extensions
+  cli.py           doctor | login | download | install-extensions | generate | benchmark | ui
+  generate.py      make_one (one seed, OOM ladder, export-only retry), run_job, reports
+  pipeline.py      Generator: selective loading, stage wrappers, export, set_alpha_mode, OBJ
+  memory.py        StageMonitor, StageOOM, apply_vram_cap
+  presets.py       fast | balanced | quality, lower() ladder
+  preview.py       4-view nvdiffrast render (UI gallery, docs)
+  ui/app.py        Gradio UI
   i18n/            ko.json, en.json
 wheels/sources.toml, build.py, manifest.json     pinned extension sources, builder, release hashes
 .github/workflows/tests.yml, build-wheels.yml     CPU tests + lint; wheel builds (manual dispatch)
@@ -151,4 +161,5 @@ export_glb, retried with texture 1024, hit OOM in texture_decoder, retried at 51
 2. Hand `install.bat` to a Windows tester; fix from their `logs/install-*.log`.
 3. M2 leftovers: after an OOM in export, retry only the export with the mesh already made
    (today the whole generation reruns). Measure a real 16GB card when one is available.
-4. M3: Gradio web UI on top of `generate.run_job` (presets, seeds gallery, Model3D preview, ko/en).
+4. M3: confirm the web UI (`run.bat`) in a real browser on Windows; offloading-strength control
+   from the original spec is not implemented (upstream low_vram is the only mode so far).
