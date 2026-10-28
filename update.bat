@@ -2,7 +2,8 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 set HAVE_GIT=0
-if exist .git where git >/dev/null 2>/dev/null && set HAVE_GIT=1
+rem cmd has no /dev/null; redirecting there fails, so git was never used before this fix.
+if exist .git where git >nul 2>nul && set HAVE_GIT=1
 if "%HAVE_GIT%"=="1" (
   git pull --ff-only
   git submodule update --init third_party/TRELLIS.2
