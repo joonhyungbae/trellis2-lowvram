@@ -151,8 +151,11 @@ def cmd_download(args: argparse.Namespace, paths) -> int:
 
 
 def cmd_install_extensions(args: argparse.Namespace, paths) -> int:
-    from .extensions import install
+    from .extensions import entries_for, install, load_manifest, platform_key
 
+    if not entries_for(load_manifest(), platform_key()):
+        say(t("ext.not_ready"))
+        return 1
     names = install(paths.home / ".tools" / "wheels")
     say(t("ext.installed", names=", ".join(names)))
     return 0

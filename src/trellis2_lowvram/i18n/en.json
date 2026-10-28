@@ -71,5 +71,6 @@
   "install.step6.fail": "[Step 6: Models] Could not download the model files (over 10GB). Check: (1) your internet connection and access to huggingface.co (2) free disk space (3) DINOv3 access is approved. After approval you can just run trellis2 download again.",
   "download.failed": "The model download was interrupted or failed. Check your internet connection and access to huggingface.co, then run trellis2 download again. Partial files resume.",
   "download.no_space": "Not enough disk space to download the models. Free up space on the drive with {path}, then run trellis2 download again.",
-  "install.log": "If it still fails, please attach this log file to a GitHub issue: {log}"
+  "install.log": "If it still fails, please attach this log file to a GitHub issue: {log}",
+  "ext.not_ready": "Prebuilt 3D processing components for this operating system are not available in this version yet. This is not something you can fix. Please run update later to get a newer version."
 }

@@ -1,1 +1,49 @@
-{"release": null, "wheels": {}}
+{
+  "release": "wheels-v1",
+  "wheels": {
+    "win_amd64": [
+      {
+        "file": "flex_gemm-1.0.0-cp311-cp311-win_amd64.whl",
+        "url": "https://github.com/joonhyungbae/trellis2-lowvram/releases/download/wheels-v1/flex_gemm-1.0.0-cp311-cp311-win_amd64.whl",
+        "sha256": "4c4ab757b64acf3f7d08f6ffd959bb57510eb1f423a122d6f815482c7682d4e7"
+      },
+      {
+        "file": "cumesh-0.0.1-cp311-cp311-win_amd64.whl",
+        "url": "https://github.com/joonhyungbae/trellis2-lowvram/releases/download/wheels-v1/cumesh-0.0.1-cp311-cp311-win_amd64.whl",
+        "sha256": "2f527bca6724f7d2b582d5cfbad6738a2dec41c214f43ef94e986e364fc7a6d8"
+      },
+      {
+        "file": "o_voxel-0.0.1-cp311-cp311-win_amd64.whl",
+        "url": "https://github.com/joonhyungbae/trellis2-lowvram/releases/download/wheels-v1/o_voxel-0.0.1-cp311-cp311-win_amd64.whl",
+        "sha256": "09789238648efa3efdf88c449fc6dea7eb576008ae6e339751aa41082401cf63"
+      },
+      {
+        "file": "nvdiffrast-0.4.0-cp311-cp311-win_amd64.whl",
+        "url": "https://github.com/joonhyungbae/trellis2-lowvram/releases/download/wheels-v1/nvdiffrast-0.4.0-cp311-cp311-win_amd64.whl",
+        "sha256": "fe9eb959388b52d9be857dc59cd43965c670944764df0dec540b7dac966cfbb8"
+      }
+    ],
+    "linux_x86_64": [
+      {
+        "file": "flex_gemm-1.0.0-cp311-cp311-linux_x86_64.whl",
+        "url": "https://github.com/joonhyungbae/trellis2-lowvram/releases/download/wheels-v1/flex_gemm-1.0.0-cp311-cp311-linux_x86_64.whl",
+        "sha256": "ba9e6d3d3af419b819b581ea5a916b47ac1ec5da10ec9456c5736f48ccbd6cbb"
+      },
+      {
+        "file": "cumesh-0.0.1-cp311-cp311-linux_x86_64.whl",
+        "url": "https://github.com/joonhyungbae/trellis2-lowvram/releases/download/wheels-v1/cumesh-0.0.1-cp311-cp311-linux_x86_64.whl",
+        "sha256": "1d7774ef67ddb1fe7a6615572775fedff6db5b85db94784325b275d973d3f159"
+      },
+      {
+        "file": "o_voxel-0.0.1-cp311-cp311-linux_x86_64.whl",
+        "url": "https://github.com/joonhyungbae/trellis2-lowvram/releases/download/wheels-v1/o_voxel-0.0.1-cp311-cp311-linux_x86_64.whl",
+        "sha256": "9b326de066d587fade3140c37ab26a9de113b0e627a7d16e76c9b18760f2e658"
+      },
+      {
+        "file": "nvdiffrast-0.4.0-cp311-cp311-linux_x86_64.whl",
+        "url": "https://github.com/joonhyungbae/trellis2-lowvram/releases/download/wheels-v1/nvdiffrast-0.4.0-cp311-cp311-linux_x86_64.whl",
+        "sha256": "b078380296a7f8c0b325722c1ad63bb012cc62871cf3df133e67513de3305d7f"
+      }
+    ]
+  }
+}

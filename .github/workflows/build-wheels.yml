@@ -72,7 +72,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # wheels/manifest.json pins sha256 per release; never overwrite a published release.
+          if gh release view "${{ inputs.release_tag }}" --json assets -q '.assets[].name' 2>/dev/null | grep -q "${{ matrix.key }}"; then
+            echo "Release ${{ inputs.release_tag }} already has ${{ matrix.key }} wheels. Use a new tag (e.g. wheels-v2)."; exit 1
+          fi
           gh release view "${{ inputs.release_tag }}" >/dev/null 2>&1 || \
             gh release create "${{ inputs.release_tag }}" --prerelease --title "${{ inputs.release_tag }}" \
               --notes "Prebuilt CUDA extension wheels. Sources: wheels/sources.toml. nvdiffrast is under the NVIDIA Source Code License (non-commercial); its license text is inside the wheel."
-          gh release upload "${{ inputs.release_tag }}" dist/wheels/*.whl dist/wheels/*.jsonl --clobber
+          gh release upload "${{ inputs.release_tag }}" dist/wheels/*.whl dist/wheels/*.jsonl

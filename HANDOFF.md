@@ -108,8 +108,10 @@ uvx ruff@0.14.0 check src tests wheels scripts && uvx ruff@0.14.0 format --check
 python wheels/build.py --out dist/wheels           # needs CUDA 12.8 nvcc + compiler; makes its own venv
 ```
 
-Actions: `gh workflow run build-wheels.yml [-f release_tag=wheels-v1]` builds Windows and Linux
-wheels; then copy the `{"file", "sha256"}` lines into `wheels/manifest.json` with release URLs.
+Actions: `gh workflow run build-wheels.yml -f release_tag=wheels-vN` builds Windows and Linux
+wheels into a **new** release (it refuses to overwrite one: builds are not byte-identical and
+`wheels/manifest.json` pins sha256). Then download the release, check hashes against `*.jsonl`,
+and write `wheels/manifest.json`. Current: `wheels-v1`. Windows needs the patches in `wheels/patches/`.
 
 ## 6. Facts about upstream that shape the design
 
