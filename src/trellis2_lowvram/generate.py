@@ -1,6 +1,6 @@
 """One generation job: image -> (several seeds) -> GLB/OBJ + a VRAM/time report.
 
-Shared by the CLI (`generate`, `benchmark`), scripts/gpu_smoke_test.py and, later, the web UI.
+Shared by the CLI (`generate`, `benchmark`), scripts/gpu_smoke_test.py and the web UI (make_one).
 """
 
 from __future__ import annotations
@@ -109,9 +109,9 @@ def run_job(
 ) -> dict[str, Any]:
     """Pass `gen` to reuse an already loaded pipeline (several images in one session)."""
     import torch
-    from PIL import Image
 
     from .attention import choose_backend
+    from .images import open_image
     from .pipeline import Generator
 
     cap = apply_vram_cap(job.vram_cap_gib)
@@ -120,7 +120,7 @@ def run_job(
         gen = Generator(job.settings.pipeline_type, StageMonitor(on_stage=on_stage))
     monitor = gen.monitor
     load_seconds = round(time.perf_counter() - t_load, 1)
-    image = Image.open(job.image)
+    image = open_image(job.image)
 
     results: list[SeedResult] = []
     for seed in job.seeds:

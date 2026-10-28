@@ -13,12 +13,15 @@ from __future__ import annotations
 
 import math
 import sys
+from pathlib import Path
 
 import numpy as np
 import nvdiffrast.torch as dr
 import torch
 import trimesh
 from PIL import Image
+
+from .images import open_image
 
 SIZE = 512
 BG = 0.93
@@ -84,7 +87,7 @@ def render(glb: str, out: str, ref: str | None = None) -> str:
     angles = [(0, 0), (math.pi / 2, 0), (math.pi, 0), (math.pi / 4, -0.5)]
     tiles = [Image.fromarray(view(ctx, v, f, uv, n, tex, a, b)) for a, b in angles]
     if ref:
-        r = Image.open(ref).convert("RGBA")
+        r = open_image(Path(ref)).convert("RGBA")  # HEIC, phone rotation
         bg = Image.new("RGBA", r.size, (int(BG * 255),) * 3 + (255,))
         bg.alpha_composite(r)
         tiles.insert(0, bg.convert("RGB").resize((SIZE, SIZE)))

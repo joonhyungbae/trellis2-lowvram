@@ -625,6 +625,22 @@ wheels = [
 ]
 
 [[package]]
+name = "pillow-heif"
+version = "1.8.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pillow", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/44/c1/82145984920ca055675af2c2795bd30da6f7461215c41f3c1eacb3d66353/pillow_heif-1.8.1.tar.gz", hash = "sha256:521ebffb8a181d56c3904e5a61f20903edee0d9d3275967b8fb345f866215c06", size = 17395786, upload-time = "2026-10-11T13:18:19.2Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/40/63/ad16ea9d8c3d3568b10de38896ba5787a3b84c1af8ec15d2c524ba19d940/pillow_heif-1.8.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a94f02ccb61042820e9fc60b2a427d85377c6017d27b7594d33f26b1c78918e5", size = 5709404, upload-time = "2026-10-11T11:16:29.793Z" },
+    { url = "https://files.pythonhosted.org/packages/93/42/663e4cbeae8832ceb595daf4edc0c2506e9a7a223d5b157a98d6809dfd97/pillow_heif-1.8.1-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:3ca20c0ce72d2884011b642ae57ad1305cfd0bf80c3c07ebdf140cf8e5dd7102", size = 6745450, upload-time = "2026-10-11T11:16:33.571Z" },
+    { url = "https://files.pythonhosted.org/packages/92/a0/1b9febe5d16652972d5fb5c1463a610acc1906f0cf0f58f90fe1dc13f1fb/pillow_heif-1.8.1-cp311-cp311-win_amd64.whl", hash = "sha256:9d9e1034a5d6a8ccea5a950545583d82c0c249bd68f8825bbc91436d652a170c", size = 6603993, upload-time = "2026-10-11T11:16:35.521Z" },
+    { url = "https://files.pythonhosted.org/packages/33/ad/67cde410707ef0d53717ddd92a305dfded755ac6f9eef1ea02c819612361/pillow_heif-1.8.1-pp311-pypy311_pp73-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ad4a201eebfb45f5c4217e62e835c27aed2788f9f252616a31346491060eec35", size = 5654632, upload-time = "2026-10-11T13:18:14.837Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/f9/ba8c637bbc8c3dc46f8a875efd910f8a072085e550c22b0faa7a3ffc161d/pillow_heif-1.8.1-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:9307c857733908ea013cdc6fb08598440e6c3df0c48721b455a8b1dd137d14b5", size = 6604282, upload-time = "2026-10-11T13:18:17.227Z" },
+]
+
+[[package]]
 name = "pluggy"
 version = "1.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1032,6 +1048,7 @@ dependencies = [
     { name = "nvidia-ml-py", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "opencv-python-headless", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "pillow", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "pillow-heif", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "plyfile", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "psutil", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "safetensors", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
@@ -1065,6 +1082,7 @@ requires-dist = [
     { name = "nvidia-ml-py" },
     { name = "opencv-python-headless" },
     { name = "pillow" },
+    { name = "pillow-heif" },
     { name = "plyfile" },
     { name = "psutil" },
     { name = "safetensors" },

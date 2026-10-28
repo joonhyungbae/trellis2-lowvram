@@ -19,6 +19,8 @@ dependencies = [
     "safetensors",
     "numpy",
     "pillow",
+    # iPhone photos are HEIC by default; Pillow alone cannot open them
+    "pillow-heif",
     "opencv-python-headless",
     "trimesh",
     "easydict",

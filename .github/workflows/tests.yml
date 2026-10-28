@@ -13,8 +13,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           version: "0.11.8"
-      # Unit tests do not need torch; install only what they import.
-      - run: uv run --no-project --python 3.11 --with pytest python -m pytest -q
+      # Unit tests do not need torch; install only what they import (Pillow: input pictures).
+      - run: uv run --no-project --python 3.11 --with pytest --with pillow --with pillow-heif python -m pytest -q
         env:
           PYTHONPATH: src
       - run: uvx ruff@0.14.0 check src tests wheels scripts && uvx ruff@0.14.0 format --check src tests wheels scripts
