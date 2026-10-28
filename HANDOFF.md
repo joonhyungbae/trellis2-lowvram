@@ -47,8 +47,8 @@ quantized model; never describe it that way.
 | M0 | Research and design (`docs/PLAN.md`) | done, approved |
 | M1 | Installer, `doctor`, HF access, model download, CUDA extension wheels | done (pending maintainer review) |
 | M2 | Memory-managed generation CLI, per-stage VRAM report, OOM retry | **in progress**: generate/benchmark work on Linux and Windows; OOM retry verified (simulated cap) |
-| M3 | Gradio web UI (upload, presets, multi-seed, preview, GLB/OBJ, ko/en) | **in progress**: works in headless Chrome on Linux; real-browser 3D view on Windows unverified |
-| M4 | READMEs, TROUBLESHOOTING, BENCHMARKS, THIRD_PARTY_LICENSES, v0.1.0 | not started |
+| M3 | Gradio web UI (upload, presets, multi-seed, preview, GLB/OBJ, ko/en) | **in progress**: works in headless Chrome on Linux and Windows; real-browser 3D view unverified. Added: Stop, HEIC, per-resolution model check, single instance |
+| M4 | READMEs, TROUBLESHOOTING, BENCHMARKS, THIRD_PARTY_LICENSES, v0.1.0 | **started**: docs/TROUBLESHOOTING.md and THIRD_PARTY_LICENSES.md written; screenshots and v0.1.0 tag open |
 
 Verified so far (Linux, RTX 4090):
 - Full `doctor` passes: GPU, driver, torch 2.8.0+cu128 sees the GPU, the four CUDA extensions
@@ -65,10 +65,20 @@ Verified on Windows 11 (pc2: RTX 3080 10GB, driver 610.88, ZIP download without 
 - Step-5 failure guidance shown correctly when the manifest was still empty.
 - `make3d.bat` (drag-and-drop path as argument) with a Korean path containing spaces, while the
   web UI was running in another window: ok, 97.6 s.
+- 2026-10-29 usability pass (all on pc2):
+  - `generate` with a phone JPG stored sideways + EXIF orientation 6, an iPhone HEIC, a broken
+    file and a missing file: the two bad inputs are explained and skipped before the model loads;
+    the other two are made upright (checked in the 4-view preview).
+  - `trellis2.bat` copied to a folder without `.venv` prints "install first" and exits 1.
+  - `update.bat` git detection: the old `>/dev/null` line never found git; fixed line does.
+  - `ui/running.py` against a live UI, a stale file and no file.
 
 Not verified yet:
 - `install.bat` double-click itself (tested via `install.ps1` over SSH; same script).
 - Interactive `login` prompt on a Windows console (token was passed with `--token`).
+- Installer end: desktop shortcut (`trellis2-lowvram.lnk`), Ubuntu `.desktop` entry, and the
+  final "done" / "done except models" message (scripts only parsed: PowerShell parser, bash -n).
+- `trellis2.sh` "install first" guard (bash -n only).
 - A real 16GB card. A real (not simulated) OOM; on Windows the driver spills into shared memory instead.
 - `generate` interactive OOM prompt. The web UI's rotatable Model3D view in a real browser
   (Gradio 6 Model3D uses Babylon.js WebGPU; headless Chrome has no WebGPU and cannot screenshot it).
@@ -111,6 +121,24 @@ Gotchas found so far:
   model files (with a download button). Readiness logic: `ui/app.py: readiness()`.
 - `pkill -f <pattern>` also kills the shell running it (its command line contains the pattern); kill by PID.
 - `trimesh.load(glb)` with default `process=True` takes minutes on these meshes; use `process=False`.
+- One web UI (or generate) process keeps every model in RAM: about 20GB private memory on pc2.
+  Two at once on a 32GB PC swap: sparse_structure 5 s -> 365 s, shape_flow -> 455 s. `trellis2 ui`
+  now reuses a running page (`ui/running.py`, `logs/ui-running.json`); `generate` warns.
+- Running `uv sync` by hand while the web UI is open fails on the locked .exe **after** removing
+  the CUDA extensions (happened again 2026-10-29). Recover without closing the UI:
+  `uv pip install --python .venv/Scripts/python.exe <new pkg>` + `python -m trellis2_lowvram install-extensions`.
+- `uv run --no-project` inside the repo still sees `.venv` site-packages: run the unit tests from
+  another folder to reproduce CI (CI installs only pytest, pillow, pillow-heif).
+- Gradio already applies EXIF rotation to uploads (`gradio/image_utils.py`); the CLI did not.
+  `images.open_image` is the one place inputs are opened (CLI, run_job, UI worker, preview).
+- pillow-heif binary wheels are GPLv2 (they bundle x265). Installed from PyPI, not redistributed;
+  listed in THIRD_PARTY_LICENSES.md with plyfile (GPL-3.0+) and easydict (LGPL-3.0).
+- Transparency is unstable on the glass-tube sample `T`: same picture, seed 42, fast preset gave
+  1.3% (RGBA PNG), 4.0% (JPEG) and 77.6% (HEIC) see-through texels (BiRefNet masks identical,
+  pixels identical up to compression). The 77.6% model looks like dripping strands. Not caused by
+  input handling; worth a look at `TRANSPARENT_SHARE` / alpha baking later.
+- 'Stop' in the web UI is checked at stage boundaries (StageMonitor.on_stage raises
+  `ui.app.Cancelled`); upstream stages cannot be interrupted midway.
 
 ## 4. Map
 
@@ -135,12 +163,16 @@ src/trellis2_lowvram/
   memory.py        StageMonitor, StageOOM, apply_vram_cap
   presets.py       fast | balanced | quality, lower() ladder
   preview.py       4-view nvdiffrast render (UI gallery, docs)
+  images.py        open_image: EXIF rotation, HEIC (pillow-heif), BadImage
+  errors.py        explain(exception) -> i18n what/fix keys for CLI and UI
   ui/app.py        Gradio UI
+  ui/running.py    single web UI per install (logs/ui-running.json)
   i18n/            ko.json, en.json
 wheels/sources.toml, build.py, manifest.json     pinned extension sources, builder, release hashes
 .github/workflows/tests.yml, build-wheels.yml     CPU tests + lint; wheel builds (manual dispatch)
 docs/PLAN.md       design, confirmed upstream facts, decisions, milestone criteria (Korean)
 docs/UPSTREAM.md   pins and how to move them
+docs/TROUBLESHOOTING.md, THIRD_PARTY_LICENSES.md   user help (ko/en), license summary
 ```
 
 ## 5. Commands
@@ -150,7 +182,7 @@ uv sync --frozen                                   # dev env (needs CUDA wheels 
 uv run trellis2-lowvram doctor [--pre] [--json f]  # environment check
 uv run trellis2-lowvram login                      # HF token + DINOv3 access
 uv run trellis2-lowvram download [--pipeline 512 1024_cascade]
-PYTHONPATH=src uv run --no-project --python 3.11 --with pytest python -m pytest -q
+PYTHONPATH=src uv run --no-project --python 3.11 --with pytest --with pillow --with pillow-heif python -m pytest -q
 uvx ruff@0.14.0 check src tests wheels scripts && uvx ruff@0.14.0 format --check src tests wheels scripts
 python wheels/build.py --out dist/wheels           # needs CUDA 12.8 nvcc + compiler; makes its own venv
 ```
@@ -182,7 +214,11 @@ export_glb, retried with texture 1024, hit OOM in texture_decoder, retried at 51
 1. Finish the extension wheel builds (local Linux, then Actions for Windows/Linux); publish to a
    release; fill `wheels/manifest.json`; full `doctor` must pass on Linux.
 2. Hand `install.bat` to a Windows tester; fix from their `logs/install-*.log`.
-3. M2 leftovers: after an OOM in export, retry only the export with the mesh already made
-   (today the whole generation reruns). Measure a real 16GB card when one is available.
-4. M3: confirm the web UI (`run.bat`) in a real browser on Windows; offloading-strength control
-   from the original spec is not implemented (upstream low_vram is the only mode so far).
+3. M2 leftovers: measure a real 16GB card when one is available. (Export-only retry after an
+   OOM in export is done: `generate.make_one` keeps the mesh.)
+4. M3: confirm the web UI (`run.bat`) in a real browser on Windows (Model3D needs WebGPU), and a
+   HEIC upload from the browser's file picker (server side verified only through gradio_client).
+   Offloading-strength control is deliberately not implemented: StageMonitor already frees memory
+   after every stage (PLAN 3.3 "aggressive"), and "extreme" (block-wise offload) is only to be built
+   when a measurement shows a stage that does not fit (PLAN 3.3). None has so far at 512.
+5. M4: screenshots in the READMEs, BENCHMARKS from a real 16GB card, tag v0.1.0.

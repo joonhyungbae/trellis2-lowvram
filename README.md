@@ -39,17 +39,20 @@ You do **not** need to install Python, CUDA, Visual Studio or conda yourself.
    [facebook/dinov3-vitl16-pretrain-lvd1689m](https://huggingface.co/facebook/dinov3-vitl16-pretrain-lvd1689m).
 3. Windows: double-click `install.bat`. Ubuntu: run `./install.sh`.
    The installer checks your PC first, then downloads everything into this folder.
-   At the end it asks for a Hugging Face token ([create one](https://huggingface.co/settings/tokens), Read permission).
-4. If something fails, the installer prints the path of a log file. Please attach it to an issue.
+   At the end it asks for a Hugging Face token ([create one](https://huggingface.co/settings/tokens), Read permission)
+   and puts a **trellis2-lowvram** shortcut on the desktop.
+   If DINOv3 is not approved yet, everything except the model files is installed; after the
+   approval email, open the web interface and press **Download models**.
+4. If something fails, the installer says what to check and prints the path of a log file.
+   See [troubleshooting](docs/TROUBLESHOOTING.md), or attach the log to an issue.
 
 To uninstall, delete the folder. To update, run `update.bat` / `./update.sh`.
-
-`TODO(screenshot)`: installer and PC check.
 
 ## Check your PC
 
 ```
-trellis2 doctor        # Windows (in this folder)
+trellis2 doctor        # Windows, Command Prompt in this folder
+.\trellis2 doctor      # Windows PowerShell (the default terminal on Windows 11)
 ./trellis2.sh doctor   # Ubuntu
 ```
 
@@ -57,15 +60,20 @@ trellis2 doctor        # Windows (in this folder)
 
 ## Make a model
 
-**Web interface:** double-click `run.bat` (Ubuntu: `./run.sh`). Your browser opens a local page:
-upload a picture, pick a quality, press **Make 3D**, turn the model around, download GLB / OBJ.
-Several seeds can be made at once and compared side by side. Korean / English switch at the top.
+**Web interface:** double-click the **trellis2-lowvram** desktop icon or `run.bat`
+(Ubuntu: `./run.sh`). Your browser opens a local page: upload a picture (PNG, JPG, WEBP or iPhone
+HEIC), pick a quality, press **Make 3D**, turn the model around, download GLB / OBJ.
+Several seeds can be made at once and compared side by side; **Stop** ends a run after the
+current step and keeps the models already finished. Korean / English switch at the top.
+Opening it a second time reuses the running page instead of loading the models again.
 The page stays on this PC (127.0.0.1); `run.bat --share` makes a public link only if you ask.
 The rotatable 3D view needs a browser with WebGPU (current Chrome or Edge); preview images and
 downloads work in any browser.
 
+![web interface](docs/images/web-ui-en.png)
+
 **Drag and drop (Windows):** drag one or more pictures onto `make3d.bat`. It makes a model for
-each (balanced quality) and opens the `outputs` folder when done. Ubuntu: `./make3d.sh photo.jpg`.
+each (balanced quality) and opens the result folder when done. Ubuntu: `./make3d.sh photo.jpg`.
 
 **Command line:**
 
@@ -76,8 +84,8 @@ trellis2 generate photo.jpg --seeds 3            # three variations to choose fr
 trellis2 generate photo.jpg --preset quality     # texture 4096, more faces (slower)
 ```
 
-Results go to `outputs/`: a `.glb` (with PBR materials) and an `_obj` folder (OBJ + texture),
-plus a report of time and graphics memory per stage. If graphics memory runs out, it tells you
+Each run saves to its own folder `outputs/<date-time>/`: a `.glb` (with PBR materials) and an
+`_obj` folder (OBJ + texture), plus a report of time and graphics memory per stage. If graphics memory runs out, it tells you
 which stage failed and offers to retry with lower settings. The first run on a PC takes a few
 extra minutes. See [tips for input images](docs/examples/README.md#tips-for-input-images--좋은-입력-이미지).
 
@@ -86,7 +94,12 @@ extra minutes. See [tips for input images](docs/examples/README.md#tips-for-inpu
 Code in this repository: MIT. Model weights are not included; they are downloaded from their
 official sources at install time. Some components have their own terms; in particular
 **nvdiffrast, used to bake textures, allows non-commercial use only**, so models you make are for
-study, research and non-commercial exhibition. A full list will be in `THIRD_PARTY_LICENSES.md`.
+study, research and non-commercial exhibition. Full list: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+
+## Problems
+
+[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) (Korean and English) covers install failures,
+DINOv3 access, a blank 3D view, slowness and out-of-memory.
 
 ## For developers and AI agents
 
