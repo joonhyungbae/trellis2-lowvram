@@ -92,18 +92,19 @@ def _access_check():
     return Check("hf_access", Status.FAIL, f"check.hf.{a.value}", fix, p)
 
 
-def _models_check():
+def _models_check(pipeline_type: str = "512"):
     from .env_check import Check, Status
     from .models import missing_files
 
-    missing = missing_files("512")
+    missing = missing_files(pipeline_type)
     if not missing:
         return Check("models", Status.OK, "check.models.ok")
+    fix = "fix.models.missing" if pipeline_type == "512" else "fix.models.missing_1024"
     return Check(
         "models",
         Status.FAIL,
         "check.models.missing",
-        "fix.models.missing",
+        fix,
         {"n": len(missing), "files": missing},
     )
 
@@ -188,6 +189,42 @@ def _prepare_gpu() -> None:
     attention.apply(attention.choose_backend())
 
 
+def _ready_to_generate(pipeline_type: str) -> bool:
+    """Check what we can before the 1-2 minute model load, and say what to do if it fails."""
+    import torch
+
+    from .env_check import Status
+
+    if not torch.cuda.is_available():
+        say(t("error.no_gpu"))
+        say(f"       -> {t('fix.torch.no_cuda')}")
+        return False
+    c = _models_check(pipeline_type)
+    if c.status != Status.OK:
+        say(t(c.msg, **c.params))
+        say(f"       -> {t(c.fix, **c.params)}")
+        return False
+    return True
+
+
+def _readable(images: list[Path]) -> list[Path]:
+    from .images import BadImage, open_image
+
+    ok = []
+    for p in images:
+        if not p.is_file():
+            say(t("gen.no_input", path=p))
+            continue
+        try:
+            open_image(p)
+        except BadImage:
+            say(t("error.bad_image", path=p.name))
+            say(f"       -> {t('fix.bad_image')}")
+            continue
+        ok.append(p)
+    return ok
+
+
 def _ask_retry(interactive: bool):
     def ask(stage: str, cur, new) -> bool:
         say(t("gen.oom", stage=stage))
@@ -220,19 +257,21 @@ def _job_from_args(args: argparse.Namespace, image: Path, out_dir: Path):
 
 def cmd_generate(args: argparse.Namespace, paths) -> int:
     from .generate import run_job, write_report
+    from .presets import resolve
 
-    images = [Path(p) for p in args.input]
-    missing = [p for p in images if not p.is_file()]
-    for p in missing:
-        say(t("gen.no_input", path=p))
-    images = [p for p in images if p.is_file()]
+    images = _readable([Path(p) for p in args.input])
     if not images:
+        return 1
+    pipeline_type = resolve(args.preset, pipeline_type=args.pipeline).pipeline_type
+    if not _ready_to_generate(pipeline_type):
         return 1
     _prepare_gpu()
     from .memory import StageMonitor
     from .pipeline import Generator
 
-    out_dir = Path(args.output) if args.output else paths.outputs
+    # A new folder per run, like the web UI: dropping the same picture again must not overwrite
+    # the earlier result, and --open shows exactly what this run made.
+    out_dir = Path(args.output) if args.output else paths.outputs / time.strftime("%Y%m%d-%H%M%S")
     ask = _ask_retry(sys.stdin.isatty() and not args.yes)
     gen, n_ok = None, 0
     for image in images:
@@ -250,8 +289,11 @@ def cmd_generate(args: argparse.Namespace, paths) -> int:
                 n_ok += 1
                 say(t("gen.done", seed=r["seed"], path=r["files"][0], seconds=r["seconds"]))
         say(t("gen.report", path=jp))
-    if args.open and n_ok:
-        _open_folder(out_dir)
+    if n_ok:
+        say()
+        say(t("gen.saved_in", path=out_dir))
+        if args.open:
+            _open_folder(out_dir)
     return 0 if n_ok else 1
 
 
@@ -259,19 +301,30 @@ def _open_folder(folder: Path) -> None:
     import os
     import subprocess
 
-    try:
-        if os.name == "nt":
-            os.startfile(folder)  # type: ignore[attr-defined]
-        else:
-            subprocess.Popen(["xdg-open", str(folder)])
-    except Exception:
-        log.debug("could not open %s", folder, exc_info=True)
+    # os.startfile has failed with "server execution failed" (seen in a remote session); try
+    # explorer before giving up. The folder path is printed either way (gen.saved_in).
+    if os.name == "nt":
+        commands = [None, ["explorer", str(folder)]]
+    else:
+        commands = [["xdg-open", str(folder)]]
+    for cmd in commands:
+        try:
+            if cmd is None:
+                os.startfile(folder)  # type: ignore[attr-defined]
+            else:
+                subprocess.Popen(cmd)
+            return
+        except Exception:
+            log.debug("could not open %s with %s", folder, cmd or "startfile", exc_info=True)
 
 
 def cmd_benchmark(args: argparse.Namespace, paths) -> int:
     from .config import UPSTREAM_DIR
     from .generate import run_job, write_report
+    from .presets import resolve
 
+    if not _ready_to_generate(resolve(args.preset, pipeline_type=args.pipeline).pipeline_type):
+        return 1
     _prepare_gpu()
     image = Path(args.input) if args.input else UPSTREAM_DIR / "assets" / "example_image" / "T.png"
     out_dir = (
@@ -286,6 +339,11 @@ def cmd_benchmark(args: argparse.Namespace, paths) -> int:
 
 
 def cmd_ui(args: argparse.Namespace, paths) -> int:
+    import torch
+
+    if not torch.cuda.is_available():  # the page itself works; generation will not
+        say(t("error.no_gpu"))
+        say(f"       -> {t('fix.torch.no_cuda')}")
     _prepare_gpu()
     from .ui.app import launch
 
@@ -380,9 +438,17 @@ def main(argv: list[str] | None = None) -> int:
         return args.func(args, paths)
     except KeyboardInterrupt:
         return 130
-    except Exception:
+    except Exception as e:
+        from .errors import explain
+
         log.exception("unhandled error")
-        say(t("error.unexpected", log=log_path))
+        x = explain(e)
+        if x is None:
+            say(t("error.unexpected", log=log_path))
+        else:
+            say(t(x.msg, **x.params))
+            say(f"       -> {t(x.fix, **x.params)}")
+            say(t("error.log", log=log_path))
         return 1
 
 

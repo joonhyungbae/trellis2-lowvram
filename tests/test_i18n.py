@@ -27,7 +27,8 @@ def test_same_placeholders_in_every_language():
 def test_keys_used_in_code_exist():
     """String literals that look like i18n keys must be defined."""
     en = i18n.load("en")
-    pattern = re.compile(r"\"((?:check|fix|doctor|login|download|ext|error|install)\.[a-z_.]+)\"")
+    prefixes = "check|fix|doctor|login|download|ext|error|install|gen|ui|load|stage"
+    pattern = re.compile(rf"\"((?:{prefixes})\.[a-z_.]+)\"")
     used = set()
     for py in SRC.rglob("*.py"):
         used |= set(pattern.findall(py.read_text(encoding="utf-8")))
@@ -62,3 +63,7 @@ def test_install_scripts_have_a_message_for_every_step():
     for script in ("install.sh", "scripts/install.ps1"):
         text = (root / script).read_text(encoding="utf-8-sig")
         assert "install.step" in text and "install.retry" in text
+        # every literal key the script asks for exists (Msg "key" / msg key)
+        used = set(re.findall(r"[Mm]sg \"?(install\.[a-z_]+)", text)) - {"install.step"}
+        assert "install.done" in used
+        assert used <= set(i18n.load("en")), used - set(i18n.load("en"))

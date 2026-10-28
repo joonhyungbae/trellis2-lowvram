@@ -154,5 +154,22 @@
   "ui.download.progress": "Downloading models {done}/{total}: {name}",
   "ui.download.done": "All models downloaded. Loading them now.",
   "ui.download.need_access": "DINOv3 access must be confirmed before downloading.",
-  "install.close_windows": "trellis2-lowvram is still running (the web interface or a make3d window). Close those black windows, then run this again."
+  "install.close_windows": "trellis2-lowvram is still running (the web interface or a make3d window). Close those black windows, then run this again.",
+  "error.bad_image": "Could not read {path} as a picture. The file may be damaged or may not be an image.",
+  "fix.bad_image": "Use a PNG, JPG, WEBP or HEIC (iPhone) picture. If the file opens in other programs, save it again as JPG or PNG and try that.",
+  "error.no_space": "The disk ran out of space.",
+  "error.components": "A 3D processing component ({name}) could not be loaded. The installation may be incomplete or damaged.",
+  "error.network": "Could not connect to Hugging Face to get the model files.",
+  "error.models": "Model files are missing or could not be downloaded.",
+  "error.no_gpu": "PyTorch cannot use the graphics card, so 3D models cannot be made.",
+  "error.log": "Details are in this log file (attach it if you report a problem): {log}",
+  "fix.models.missing_1024": "The 1024 setting needs extra model files (about 5GB). Choose 1024 in the web interface and press 'Download models', or run trellis2 download --pipeline 512 1024_cascade.",
+  "gen.saved_in": "Results are in this folder: {path}",
+  "ui.stop": "Stop",
+  "ui.stopping": "Stopping after the current step. A step can take up to a minute.",
+  "ui.cancelled": "Stopped. Models finished before stopping are shown below.",
+  "ui.need_models": "The model files for this resolution are not downloaded yet. Open 'Readiness' at the top of the page and press 'Download models'.",
+  "install.done": "Installation finished. Double-click 'trellis2-lowvram' on the desktop (or run.bat in this folder) to open the web interface. You can also drag pictures onto make3d.bat.",
+  "install.done_need_models": "Installation finished except the model files. This is normal while DINOv3 access is waiting for approval. After the approval email arrives, double-click 'trellis2-lowvram' on the desktop (or run.bat) and press 'Download models' at the top of the page.",
+  "install.shortcut": "Made a shortcut on the desktop: {path}"
 }

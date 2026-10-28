@@ -154,5 +154,22 @@
   "ui.download.progress": "모델 받는 중 {done}/{total}: {name}",
   "ui.download.done": "모델을 모두 받았습니다. 이어서 불러옵니다.",
   "ui.download.need_access": "먼저 DINOv3 접근이 확인되어야 받을 수 있습니다.",
-  "install.close_windows": "trellis2-lowvram 이 아직 실행 중입니다(웹 화면이나 make3d 창). 그 검은 창들을 모두 닫은 뒤 다시 실행해 주세요."
+  "install.close_windows": "trellis2-lowvram 이 아직 실행 중입니다(웹 화면이나 make3d 창). 그 검은 창들을 모두 닫은 뒤 다시 실행해 주세요.",
+  "error.bad_image": "{path} 을(를) 그림으로 읽지 못했습니다. 파일이 손상되었거나 그림 파일이 아닐 수 있습니다.",
+  "fix.bad_image": "PNG, JPG, WEBP, HEIC(아이폰) 그림을 써 주세요. 다른 프로그램에서는 열린다면 JPG 나 PNG 로 다시 저장해서 써 보세요.",
+  "error.no_space": "디스크 공간이 모자랍니다.",
+  "error.components": "3D 처리 구성 요소({name})를 불러오지 못했습니다. 설치가 덜 되었거나 손상되었을 수 있습니다.",
+  "error.network": "모델 파일을 받으려고 Hugging Face 에 연결했지만 실패했습니다.",
+  "error.models": "모델 파일이 없거나 받지 못했습니다.",
+  "error.no_gpu": "PyTorch 가 그래픽카드를 쓰지 못해서 3D 모델을 만들 수 없습니다.",
+  "error.log": "자세한 내용은 이 로그 파일에 있습니다(문제를 알릴 때 첨부해 주세요): {log}",
+  "fix.models.missing_1024": "1024 설정은 모델 파일이 더 필요합니다(약 5GB). 웹 화면에서 1024 를 고른 뒤 '모델 받기'를 누르거나, trellis2 download --pipeline 512 1024_cascade 를 실행하세요.",
+  "gen.saved_in": "결과는 이 폴더에 있습니다: {path}",
+  "ui.stop": "멈추기",
+  "ui.stopping": "지금 단계가 끝나면 멈춥니다. 한 단계는 길면 1분쯤 걸립니다.",
+  "ui.cancelled": "멈췄습니다. 멈추기 전에 끝난 모델은 아래에 있습니다.",
+  "ui.need_models": "이 해상도에 필요한 모델 파일을 아직 받지 않았습니다. 페이지 위쪽 '준비 상태'를 열고 '모델 받기'를 눌러 주세요.",
+  "install.done": "설치를 마쳤습니다. 바탕화면의 'trellis2-lowvram'(또는 이 폴더의 run.bat)을 더블클릭하면 웹 화면이 열립니다. 사진을 make3d.bat 위에 끌어다 놓아도 됩니다.",
+  "install.done_need_models": "모델 파일만 빼고 설치를 마쳤습니다. DINOv3 승인을 기다리는 동안에는 정상입니다. 승인 메일을 받은 뒤 바탕화면의 'trellis2-lowvram'(또는 run.bat)을 더블클릭하고 페이지 위쪽의 '모델 받기'를 누르세요.",
+  "install.shortcut": "바탕화면에 바로가기를 만들었습니다: {path}"
 }
