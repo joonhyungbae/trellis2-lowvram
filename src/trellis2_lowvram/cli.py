@@ -161,6 +161,86 @@ def cmd_install_extensions(args: argparse.Namespace, paths) -> int:
     return 0
 
 
+# ---------------------------------------------------------------- generate / benchmark
+
+
+def _prepare_gpu() -> None:
+    from . import attention
+
+    attention.apply(attention.choose_backend())
+
+
+def _ask_retry(interactive: bool):
+    def ask(stage: str, cur, new) -> bool:
+        say(t("gen.oom", stage=stage))
+        say(t("gen.oom.proposal", old=_describe(cur), new=_describe(new)))
+        if not interactive:
+            say(t("gen.oom.auto"))
+            return True
+        return input(t("gen.oom.ask")).strip().lower() in ("y", "yes", "예", "ㅇ")
+
+    return ask
+
+
+def _describe(s) -> str:
+    return f"{s.pipeline_type} / steps {s.steps} / texture {s.texture_size}"
+
+
+def _job_from_args(args: argparse.Namespace, image: Path, out_dir: Path):
+    from .generate import Job
+    from .presets import resolve
+
+    settings = resolve(
+        args.preset,
+        pipeline_type=args.pipeline,
+        texture_size=args.texture_size,
+        steps=args.steps,
+    )
+    seeds = [args.seed + i for i in range(args.seeds)]
+    return Job(image, out_dir, settings, seeds, args.vram_cap, obj=not args.no_obj)
+
+
+def cmd_generate(args: argparse.Namespace, paths) -> int:
+    from .generate import run_job, write_report
+
+    image = Path(args.input)
+    if not image.is_file():
+        say(t("gen.no_input", path=image))
+        return 1
+    _prepare_gpu()
+    out_dir = Path(args.output) if args.output else paths.outputs
+    job = _job_from_args(args, image, out_dir)
+    say(t("gen.start", image=image.name, seeds=len(job.seeds), preset=args.preset))
+    report = run_job(job, _ask_retry(sys.stdin.isatty() and not args.yes), on_stage=_say_stage)
+    jp, _ = write_report(report, out_dir, f"{image.stem}-report")
+    ok = [r for r in report["results"] if r["ok"]]
+    for r in ok:
+        say(t("gen.done", seed=r["seed"], path=r["files"][0], seconds=r["seconds"]))
+    say(t("gen.report", path=jp))
+    return 0 if ok else 1
+
+
+def cmd_benchmark(args: argparse.Namespace, paths) -> int:
+    from .config import UPSTREAM_DIR
+    from .generate import run_job, write_report
+
+    _prepare_gpu()
+    image = Path(args.input) if args.input else UPSTREAM_DIR / "assets" / "example_image" / "T.png"
+    out_dir = (
+        Path(args.out) if args.out else paths.logs / f"benchmark-{time.strftime('%Y%m%d-%H%M%S')}"
+    )
+    job = _job_from_args(args, image, out_dir)
+    report = run_job(job, None, on_stage=_say_stage)
+    jp, mp = write_report(report, out_dir, "benchmark")
+    say(mp.read_text(encoding="utf-8"))
+    say(t("gen.report", path=jp))
+    return 0 if all(r["ok"] for r in report["results"]) else 1
+
+
+def _say_stage(stage: str) -> None:
+    say(t("gen.stage", stage=t(f"stage.{stage}")))
+
+
 # ---------------------------------------------------------------- main
 
 
@@ -188,6 +268,33 @@ def build_parser() -> argparse.ArgumentParser:
 
     ie = sub.add_parser("install-extensions", help="install prebuilt CUDA extension wheels")
     ie.set_defaults(func=cmd_install_extensions)
+
+    def add_gen_options(sp: argparse.ArgumentParser) -> None:
+        from .presets import PRESETS
+
+        sp.add_argument("--preset", choices=list(PRESETS), default="balanced")
+        sp.add_argument("--pipeline", choices=PIPELINE_TYPES, help="512 (default) or 1024_cascade")
+        sp.add_argument("--texture-size", type=int, choices=[1024, 2048, 4096])
+        sp.add_argument("--steps", type=int, help="sampling steps for every stage")
+        sp.add_argument("--seed", type=int, default=42)
+        sp.add_argument("--seeds", type=int, default=1, help="how many seeds, from --seed up")
+        sp.add_argument("--vram-cap", type=float, metavar="GB", help="simulate a smaller GPU")
+        sp.add_argument("--no-obj", action="store_true", help="GLB only")
+
+    g = sub.add_parser("generate", help="image -> 3D model (GLB, OBJ)")
+    g.add_argument(
+        "input", help="image file (PNG/JPG/WEBP); transparent PNG skips background removal"
+    )
+    g.add_argument("-o", "--output", help="output folder (default: outputs/)")
+    g.add_argument("-y", "--yes", action="store_true", help="accept lower settings after OOM")
+    add_gen_options(g)
+    g.set_defaults(func=cmd_generate)
+
+    b = sub.add_parser("benchmark", help="measure VRAM and time per stage")
+    b.add_argument("--input", help="image (default: upstream sample T.png)")
+    b.add_argument("--out", help="report folder (default: logs/benchmark-<time>)")
+    add_gen_options(b)
+    b.set_defaults(func=cmd_benchmark)
     return p
 
 

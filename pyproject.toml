@@ -27,6 +27,10 @@ dependencies = [
     "zstandard",
     "kornia",
     "timm",
+    # BiRefNet (background removal) remote code imports einops
+    "einops",
+    # faster Hugging Face downloads (Xet storage); without it hub falls back to plain HTTP
+    "hf-xet",
     # environment checks that run without torch
     "nvidia-ml-py",
     "psutil",
