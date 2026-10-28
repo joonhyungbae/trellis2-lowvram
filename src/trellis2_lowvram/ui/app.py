@@ -154,7 +154,7 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
                     ]
                 previews = L(
                     gr.Gallery(
-                        label=t("ui.previews"), columns=1, height="auto", object_fit="contain"
+                        label=t("ui.previews"), columns=1, height=280, object_fit="contain"
                     ),
                     "ui.previews",
                 )
