@@ -222,7 +222,9 @@ def cmd_generate(args: argparse.Namespace, paths) -> int:
         say(t("gen.start", image=image.name, seeds=len(job.seeds), preset=args.preset))
         if gen is None:  # load once, reuse for every image
             say(t("gen.loading"))
-            gen = Generator(job.settings.pipeline_type, StageMonitor(on_stage=_say_stage))
+            gen = Generator(
+                job.settings.pipeline_type, StageMonitor(on_stage=_say_stage), on_load=_say_load
+            )
         report = run_job(job, ask, gen=gen)
         jp, _ = write_report(report, out_dir, f"{image.stem}-report")
         for r in report["results"]:
@@ -273,6 +275,11 @@ def cmd_ui(args: argparse.Namespace, paths) -> int:
         say(t("ui.share_warning"))
     launch(share=args.share, port=args.port, lang=args.lang, browser=not args.no_browser)
     return 0
+
+
+def _say_load(done: int, total: int, part: str) -> None:
+    if part != "done":
+        say(t("load.progress", done=done + 1, total=total, part=t(f"load.{part}")))
 
 
 def _say_stage(stage: str) -> None:

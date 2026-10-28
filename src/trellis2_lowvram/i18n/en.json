@@ -124,5 +124,18 @@
   "ui.done": "{n} of {total} done. Saved in: {path}",
   "ui.share_warning": "Creating a public link (gradio.live). Anyone with the link can generate on this PC's graphics card. Use it only when needed and close the window afterwards.",
   "ui.previews": "Preview (input, front, side, back, above)",
-  "gen.loading": "Loading models. The first run on a PC takes a few extra minutes to prepare compute kernels."
+  "gen.loading": "Loading models. The first run on a PC takes a few extra minutes to prepare compute kernels.",
+  "load.progress": "Loading models {done}/{total}: {part}",
+  "load.ready": "Models ready ({seconds} s)",
+  "load.image_cond": "image encoder (DINOv3)",
+  "load.rembg": "background removal model",
+  "load.done": "finishing",
+  "load.sparse_structure_flow_model": "structure model",
+  "load.sparse_structure_decoder": "structure decoder",
+  "load.shape_slat_flow_model_512": "shape model",
+  "load.shape_slat_flow_model_1024": "shape model (1024)",
+  "load.shape_slat_decoder": "shape decoder",
+  "load.tex_slat_flow_model_512": "color/material model",
+  "load.tex_slat_flow_model_1024": "color/material model (1024)",
+  "load.tex_slat_decoder": "texture decoder"
 }

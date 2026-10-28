@@ -12,7 +12,9 @@ The model itself, its weights, samplers and parameters are upstream's.
 
 from __future__ import annotations
 
+import contextlib
 import logging
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -37,24 +39,103 @@ STAGES = (
     ("decode_tex_slat", "texture_decoder"),
 )
 
-NVDIFFRAST_FACE_LIMIT = 16_777_216  # upstream example.py / app.py simplify to this before baking
+NVDIFFRAST_FACE_LIMIT = 16_777_216
+
+_INIT_FUNCS = (
+    "uniform_",
+    "normal_",
+    "trunc_normal_",
+    "constant_",
+    "ones_",
+    "zeros_",
+    "eye_",
+    "xavier_uniform_",
+    "xavier_normal_",
+    "kaiming_uniform_",
+    "kaiming_normal_",
+    "orthogonal_",
+)
+
+
+@contextlib.contextmanager
+def skip_random_init() -> Iterator[None]:
+    """Make torch.nn.init a no-op while models are built.
+
+    Upstream builds each model with training initialization (random values for ~1.3B weights on
+    the CPU) and then overwrites every weight from the checkpoint: about 15 s per flow model on
+    the RTX 3080 PC, 55 of 94 s of loading. All parameters are in the checkpoints (checked:
+    no missing parameter keys); the one missing buffer, rope_phases, is computed, not random.
+    """
+    saved = {n: getattr(torch.nn.init, n) for n in _INIT_FUNCS if hasattr(torch.nn.init, n)}
+    for n in saved:
+        setattr(torch.nn.init, n, lambda tensor, *a, **k: tensor)
+    try:
+        yield
+    finally:
+        for n, f in saved.items():
+            setattr(torch.nn.init, n, f)
+
+
+@contextlib.contextmanager
+def hub_offline() -> Iterator[None]:
+    """Use the local Hugging Face cache without asking the Hub about every file (~1 s each).
+
+    Raises if something is not cached; the caller then loads again online.
+    """
+    from huggingface_hub import constants
+
+    saved = constants.HF_HUB_OFFLINE
+    constants.HF_HUB_OFFLINE = True
+    try:
+        yield
+    finally:
+        constants.HF_HUB_OFFLINE = (
+            saved  # upstream example.py / app.py simplify to this before baking
+        )
 
 
 class Generator:
-    def __init__(self, pipeline_type: str = "512", monitor: StageMonitor | None = None):
+    def __init__(
+        self,
+        pipeline_type: str = "512",
+        monitor: StageMonitor | None = None,
+        on_load: Callable[[int, int, str], None] | None = None,
+    ):
+        """on_load(done, total, part) reports loading progress; part is a key for i18n "load.*"."""
+        self.monitor = monitor or StageMonitor()
+        self.on_load = on_load or (lambda done, total, part: None)
+        try:
+            with hub_offline():
+                self._build(pipeline_type)
+        except Exception as e:  # something not cached yet: same steps, asking the Hub
+            log.info("offline load failed (%r); loading online", e)
+            self._build(pipeline_type)
+        self.pipe.cuda()  # low_vram: records the device only; models stay on the CPU
+
+        self.monitor.on_oom = self.offload_all
+        for method, stage in STAGES:
+            setattr(self.pipe, method, self.monitor.wrap(stage, getattr(self.pipe, method)))
+
+    def _build(self, pipeline_type: str) -> None:
         from trellis2.modules import image_feature_extractor
         from trellis2.pipelines import Trellis2ImageTo3DPipeline, rembg, samplers
 
-        self.monitor = monitor or StageMonitor()
         self.config = weights.load_pipeline_config()
         cfg = self.config
         missing = [name for name, _ in STAGES if not hasattr(Trellis2ImageTo3DPipeline, name)]
         if missing:  # the upstream pin moved without updating this wrapper (docs/UPSTREAM.md)
             raise RuntimeError(f"upstream pipeline has no {missing}")
+        total = 2 + len(weights.weights_for(pipeline_type, cfg))
 
         def sampler(key: str):
             return getattr(samplers, cfg[key]["name"])(**cfg[key]["args"])
 
+        self.on_load(0, total, "image_cond")
+        image_cond = getattr(image_feature_extractor, cfg["image_cond_model"]["name"])(
+            **cfg["image_cond_model"]["args"]
+        )
+        self.on_load(1, total, "rembg")
+        rembg_model = rembg.BiRefNet(model_name=weights.REMBG_REPO)
         self.pipe = Trellis2ImageTo3DPipeline(
             models={},
             sparse_structure_sampler=sampler("sparse_structure_sampler"),
@@ -65,28 +146,25 @@ class Generator:
             tex_slat_sampler_params=cfg["tex_slat_sampler"]["params"],
             shape_slat_normalization=cfg["shape_slat_normalization"],
             tex_slat_normalization=cfg["tex_slat_normalization"],
-            image_cond_model=getattr(image_feature_extractor, cfg["image_cond_model"]["name"])(
-                **cfg["image_cond_model"]["args"]
-            ),
-            rembg_model=rembg.BiRefNet(model_name=weights.REMBG_REPO),
+            image_cond_model=image_cond,
+            rembg_model=rembg_model,
             low_vram=True,
             default_pipeline_type=pipeline_type,
         )
-        self.ensure(pipeline_type)
-        self.pipe.cuda()  # low_vram: records the device only; models stay on the CPU
+        self.ensure(pipeline_type, offset=2, total=total)
+        self.on_load(total, total, "done")
 
-        self.monitor.on_oom = self.offload_all
-        for method, stage in STAGES:
-            setattr(self.pipe, method, self.monitor.wrap(stage, getattr(self.pipe, method)))
-
-    def ensure(self, pipeline_type: str) -> None:
+    def ensure(self, pipeline_type: str, offset: int = 0, total: int | None = None) -> None:
         """Load (once) every model this pipeline type needs."""
         from trellis2 import models as upstream_models
 
-        for ref in weights.weights_for(pipeline_type, self.config):
+        refs = weights.weights_for(pipeline_type, self.config)
+        for i, ref in enumerate(refs):
             if ref.key not in self.pipe.models:
+                self.on_load(offset + i, total or len(refs), ref.key)
                 log.info("load %s from %s/%s", ref.key, ref.repo_id, ref.name)
-                m = upstream_models.from_pretrained(f"{ref.repo_id}/{ref.name}")
+                with skip_random_init():
+                    m = upstream_models.from_pretrained(f"{ref.repo_id}/{ref.name}")
                 m.eval()
                 self.pipe.models[ref.key] = m
 

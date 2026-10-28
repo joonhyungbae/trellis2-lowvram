@@ -33,19 +33,48 @@ def tr(lang: str, key: str, **kw: Any) -> str:
 
 
 class Runner:
-    """Holds the loaded pipeline between requests."""
+    """Holds the loaded pipeline between requests and loads it in the background at startup."""
 
     def __init__(self) -> None:
         self.gen = None
         self.lock = threading.Lock()
+        self.progress: tuple[int, int, str] | None = None  # (done, total, part) while loading
+        self.load_seconds: float | None = None
+
+    def _on_load(self, done: int, total: int, part: str) -> None:
+        self.progress = (done, total, part)
 
     def generator(self, pipeline_type: str):
+        """Call with self.lock held."""
         from ..memory import StageMonitor
         from ..pipeline import Generator
 
         if self.gen is None:
-            self.gen = Generator(pipeline_type, StageMonitor())
+            t0 = time.perf_counter()
+            self.gen = Generator(pipeline_type, StageMonitor(), on_load=self._on_load)
+            self.load_seconds = round(time.perf_counter() - t0, 1)
+            self.progress = None
         return self.gen
+
+    def preload(self, pipeline_type: str = "512") -> None:
+        def work():
+            try:
+                with self.lock:
+                    self.generator(pipeline_type)
+            except Exception:  # the first generation will try again and report the error
+                log.exception("preload failed")
+                self.progress = None
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def status(self, lang: str) -> str:
+        if self.progress is not None:
+            done, total, part = self.progress
+            part_txt = tr(lang, f"load.{part}")
+            return tr(lang, "load.progress", done=min(done + 1, total), total=total, part=part_txt)
+        if self.gen is not None:
+            return tr(lang, "load.ready", seconds=self.load_seconds) + "  \n" + vram_line(lang)
+        return vram_line(lang)
 
 
 def vram_line(lang: str) -> str:
@@ -265,7 +294,10 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
                     seed_now = int(ev[5:])
                 elif ev:
                     stage = ev
-                stage_txt = tr(lg, "ui.loading") if stage == "loading" else tr(lg, f"stage.{stage}")
+                if stage == "loading":
+                    yield (runner.status(lg), *[gr.skip()] * (MAX_SEEDS + 6))
+                    continue
+                stage_txt = tr(lg, f"stage.{stage}")
                 msg = (
                     tr(
                         lg,
@@ -344,6 +376,14 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
                 *upd,
             )
 
+        def on_page_load(lg: str):
+            while runner.progress is not None or (runner.gen is None and runner.lock.locked()):
+                yield runner.status(lg)
+                time.sleep(0.7)
+            yield runner.status(lg)
+
+        demo.load(on_page_load, lang, status)
+
         run.click(
             on_run,
             [
@@ -369,6 +409,7 @@ def launch(
     share: bool = False, port: int | None = None, lang: str | None = None, browser: bool = True
 ) -> None:
     runner = Runner()
+    runner.preload()  # start loading now so the first click does not wait for it
     demo = build(runner, lang or i18n.get_lang())
     demo.queue(default_concurrency_limit=1).launch(
         server_name="127.0.0.1",
