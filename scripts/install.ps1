@@ -97,15 +97,36 @@ try {
     Run "install-extensions" uv run --frozen --no-dev trellis2-lowvram install-extensions
 
     $Step = 6; Write-Host "== 6/6 Hugging Face access (DINOv3) and models"
+    # Waiting for DINOv3 approval is normal; the rest of the install is still usable.
+    # (Keep the result right away: Msg runs uv too and resets $LASTEXITCODE.)
     & uv run --frozen --no-dev trellis2-lowvram download
-    if ($LASTEXITCODE -ne 0) {
+    $ModelsOk = $LASTEXITCODE -eq 0
+    if (-not $ModelsOk) {
         # Usually: no token or not approved yet. login explains the steps; then try once more.
         & uv run --frozen --no-dev trellis2-lowvram login
         & uv run --frozen --no-dev trellis2-lowvram download
-        if ($LASTEXITCODE -ne 0) { Write-Host ""; Msg "install.step6.fail" | Out-Null }
+        $ModelsOk = $LASTEXITCODE -eq 0
+        if (-not $ModelsOk) { Write-Host ""; Msg "install.step6.fail" | Out-Null }
     }
 
     & uv run --frozen --no-dev trellis2-lowvram doctor --json "logs\doctor.json"
+
+    # Desktop shortcut to the web interface, so nobody has to find this folder again.
+    try {
+        $Desktop = [Environment]::GetFolderPath("Desktop")
+        $Lnk = (New-Object -ComObject WScript.Shell).CreateShortcut("$Desktop\trellis2-lowvram.lnk")
+        $Lnk.TargetPath = "$Root\run.bat"
+        $Lnk.WorkingDirectory = $Root
+        $Lnk.Description = "trellis2-lowvram (picture to 3D)"
+        $Lnk.Save()
+        Write-Host ""
+        Msg "install.shortcut" "path=$Desktop\trellis2-lowvram.lnk" | Out-Null
+    } catch {
+        Write-Host "(desktop shortcut not created: $($_.Exception.Message))"
+    }
+
+    Write-Host ""
+    if ($ModelsOk) { Msg "install.done" | Out-Null } else { Msg "install.done_need_models" | Out-Null }
     Write-Host ""
     Write-Host "로그 / log: $Root\$Log"
 } catch {

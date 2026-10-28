@@ -70,10 +70,12 @@ STEP=5; echo "== 5/6 CUDA extensions"
 uv run --frozen --no-dev trellis2-lowvram install-extensions
 
 STEP=6; echo "== 6/6 Hugging Face access (DINOv3) and models"
+MODELS_OK=1
 if ! uv run --frozen --no-dev trellis2-lowvram download; then
   # Usually: no token or not approved yet. login explains the steps; then try once more.
   uv run --frozen --no-dev trellis2-lowvram login || true
   if ! uv run --frozen --no-dev trellis2-lowvram download; then
+    MODELS_OK=0
     echo
     msg install.step6.fail || true
   fi
@@ -81,5 +83,23 @@ fi
 
 trap - ERR
 uv run --frozen --no-dev trellis2-lowvram doctor --json "logs/doctor.json" || true
+
+# Menu entry for the web interface (opens a terminal, like run.sh). Not verified on a desktop.
+APPS="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+if mkdir -p "$APPS" 2>/dev/null; then
+  cat > "$APPS/trellis2-lowvram.desktop" <<DESKTOP || true
+[Desktop Entry]
+Type=Application
+Name=trellis2-lowvram
+Comment=Picture to 3D (TRELLIS.2)
+Exec="$ROOT/run.sh"
+Path=$ROOT
+Terminal=true
+Categories=Graphics;
+DESKTOP
+fi
+
+echo
+if [ "$MODELS_OK" = 1 ]; then msg install.done || true; else msg install.done_need_models || true; fi
 echo
 echo "log: $ROOT/$LOG"
