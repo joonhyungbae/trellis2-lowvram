@@ -7,8 +7,10 @@ only for the models the chosen pipeline type actually runs (see `Trellis2ImageTo
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
@@ -67,8 +69,14 @@ def weights_for(pipeline_type: str, config: dict) -> list[WeightRef]:
     return [resolve(k, config["models"][k]) for k in MODELS_BY_PIPELINE[pipeline_type]]
 
 
-def download(pipeline_types: tuple[str, ...] = ("512",)) -> None:
-    """Fetch only what the given pipeline types need. Resumes partial downloads."""
+def download(
+    pipeline_types: tuple[str, ...] = ("512",),
+    on_file: Callable[[int, int, str], None] | None = None,
+) -> None:
+    """Fetch only what the given pipeline types need. Resumes partial downloads.
+
+    on_file(done, total, name) is called before each file (progress for the web UI).
+    """
     from huggingface_hub import hf_hub_download, snapshot_download
 
     config = load_pipeline_config()
@@ -76,13 +84,63 @@ def download(pipeline_types: tuple[str, ...] = ("512",)) -> None:
     for pt in pipeline_types:
         for r in weights_for(pt, config):
             refs[(r.repo_id, r.name)] = r
+    image_cond = config["image_cond_model"]["args"]["model_name"]
+    jobs: list[tuple[str, Callable[[], object]]] = []
     for r in refs.values():
         for ext in (".json", ".safetensors"):
-            log.info("download %s/%s%s", r.repo_id, r.name, ext)
-            hf_hub_download(r.repo_id, r.name + ext)
+            jobs.append(
+                (f"{r.name}{ext}", functools.partial(hf_hub_download, r.repo_id, r.name + ext))
+            )
+    jobs.append(
+        (
+            image_cond,
+            functools.partial(
+                snapshot_download, image_cond, allow_patterns=["*.json", "*.safetensors", "*.md"]
+            ),
+        )
+    )
+    jobs.append(
+        (
+            REMBG_REPO,
+            functools.partial(
+                snapshot_download,
+                REMBG_REPO,
+                allow_patterns=["*.json", "*.py", "*.safetensors", "*.md"],
+            ),
+        )
+    )
+    for i, (name, fetch) in enumerate(jobs):
+        log.info("download %s", name)
+        if on_file:
+            on_file(i, len(jobs), name.split("/")[-1])
+        fetch()
+    if on_file:
+        on_file(len(jobs), len(jobs), "")
 
+
+def missing_files(pipeline_type: str = "512") -> list[str]:
+    """Files a pipeline type needs that are not in the local cache (no network)."""
+    from huggingface_hub import try_to_load_from_cache
+
+    def cached(repo: str, name: str) -> bool:
+        return isinstance(try_to_load_from_cache(repo, name), str)
+
+    if not cached(TRELLIS_REPO, "pipeline.json"):
+        return [f"{TRELLIS_REPO}/pipeline.json"]
+    import json
+
+    with open(try_to_load_from_cache(TRELLIS_REPO, "pipeline.json"), encoding="utf-8") as f:
+        config = json.load(f)["args"]
+    want = [
+        (r.repo_id, r.name + ext)
+        for r in weights_for(pipeline_type, config)
+        for ext in (".json", ".safetensors")
+    ]
     image_cond = config["image_cond_model"]["args"]["model_name"]
-    log.info("download %s", image_cond)
-    snapshot_download(image_cond, allow_patterns=["*.json", "*.safetensors", "*.md"])
-    log.info("download %s", REMBG_REPO)
-    snapshot_download(REMBG_REPO, allow_patterns=["*.json", "*.py", "*.safetensors", "*.md"])
+    want += [(image_cond, "config.json"), (image_cond, "model.safetensors")]
+    want += [
+        (REMBG_REPO, "config.json"),
+        (REMBG_REPO, "model.safetensors"),
+        (REMBG_REPO, "birefnet.py"),
+    ]
+    return [f"{repo}/{name}" for repo, name in want if not cached(repo, name)]

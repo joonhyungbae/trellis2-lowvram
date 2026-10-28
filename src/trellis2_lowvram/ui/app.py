@@ -57,6 +57,11 @@ class Runner:
         return self.gen
 
     def preload(self, pipeline_type: str = "512") -> None:
+        from ..models import missing_files
+
+        if self.gen is not None or missing_files(pipeline_type):
+            return  # the readiness panel asks for a token / download first
+
         def work():
             try:
                 with self.lock:
@@ -75,6 +80,35 @@ class Runner:
         if self.gen is not None:
             return tr(lang, "load.ready", seconds=self.load_seconds) + "  \n" + vram_line(lang)
         return vram_line(lang)
+
+
+MARK = {"ok": "✅", "warn": "⚠️", "fail": "❌", "skip": "·"}
+
+
+def readiness(lang: str) -> tuple[str, bool, bool, bool]:
+    """Markdown report, all_ok, token needed, models needed."""
+    from ..cli import _access_check, _models_check
+    from ..config import REPO_ROOT
+    from ..env_check import Status, check_software, run_hardware_checks, worst
+
+    i18n.set_lang(lang)
+    checks = run_hardware_checks(REPO_ROOT, get_paths().models) + check_software()
+    hf = _access_check()
+    models = _models_check()
+    checks += [hf, models]
+    lines = []
+    for c in checks:
+        lines.append(f"{MARK[c.status.value]} {i18n.t(c.msg, **c.params)}")
+        if c.fix and c.status in (Status.WARN, Status.FAIL):
+            lines.append(f"&nbsp;&nbsp;&nbsp;&nbsp;→ {i18n.t(c.fix, **c.params)}")
+    ok = worst(checks) != Status.FAIL
+    head = i18n.t("ui.preflight.ok") if ok else i18n.t("ui.preflight.problem")
+    return (
+        f"**{head}**\n\n" + "  \n".join(lines),
+        ok,
+        hf.status != Status.OK,
+        models.status != Status.OK,
+    )
 
 
 def vram_line(lang: str) -> str:
@@ -109,6 +143,19 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
                 min_width=200,
             )
         L(gr.Markdown(t("ui.notice")), "ui.notice", "value")
+        with L(gr.Accordion(t("ui.preflight"), open=True), "ui.preflight") as pre_box:
+            pre_md = gr.Markdown("…")
+            with gr.Row(visible=False) as token_row:
+                token = L(
+                    gr.Textbox(
+                        label=t("ui.token"), info=t("ui.token.info"), type="password", scale=3
+                    ),
+                    "ui.token",
+                )
+                token_btn = L(gr.Button(t("ui.token.save"), scale=1), "ui.token.save", "value")
+            with gr.Row():
+                download_btn = L(gr.Button(t("ui.download"), visible=False), "ui.download", "value")
+                recheck_btn = L(gr.Button(t("ui.recheck"), size="sm"), "ui.recheck", "value")
         with gr.Row():
             with gr.Column(scale=1):
                 image = L(gr.Image(type="filepath", label=t("ui.image"), height=320), "ui.image")
@@ -383,6 +430,76 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
             yield runner.status(lg)
 
         demo.load(on_page_load, lang, status)
+
+        def evaluate(lg: str, note: str = ""):
+            md, ok, need_token, need_models = readiness(lg)
+            if note:
+                md = f"{note}\n\n" + md
+            return (
+                md,
+                gr.update(visible=need_token),
+                gr.update(visible=need_models and not need_token),
+                gr.update(open=not ok or bool(note)),
+            )
+
+        pre_out = [pre_md, token_row, download_btn, pre_box]
+        demo.load(evaluate, lang, pre_out)
+        recheck_btn.click(evaluate, lang, pre_out)
+
+        def on_token(tok: str, lg: str):
+            from ..hf_access import Access, check_access, save_token
+
+            tok = (tok or "").strip()
+            if not tok:
+                return evaluate(lg, tr(lg, "login.empty"))
+            a = check_access(token=tok)
+            if a in (Access.OK, Access.NOT_APPROVED, Access.TOKEN_NO_GATED):
+                save_token(tok)  # saved even when not approved yet, so later checks use it
+            # Messages about the pasted token itself; evaluate() then shows the saved state.
+            note = {
+                Access.BAD_TOKEN: tr(lg, "check.hf.bad_token"),
+                Access.NETWORK: tr(lg, "check.hf.network"),
+            }.get(a, tr(lg, "login.saved"))
+            if a == Access.OK:
+                runner.preload()
+            return evaluate(lg, note)
+
+        token_btn.click(on_token, [token, lang], pre_out)
+
+        def on_download(lg: str):
+            from ..hf_access import Access, check_access
+            from ..models import download
+
+            if check_access() != Access.OK:
+                yield evaluate(lg, tr(lg, "ui.download.need_access"))
+                return
+            prog: dict[str, Any] = {"p": (0, 1, "")}
+            box: dict[str, Any] = {}
+
+            def work():
+                try:
+                    download(
+                        ("512",), on_file=lambda d, n, name: prog.__setitem__("p", (d, n, name))
+                    )
+                except Exception as e:
+                    log.exception("download failed")
+                    box["error"] = e
+
+            th = threading.Thread(target=work, daemon=True)
+            th.start()
+            while th.is_alive():
+                d, n, name = prog["p"]
+                msg = tr(lg, "ui.download.progress", done=min(d + 1, n), total=n, name=name)
+                yield (msg, gr.skip(), gr.update(interactive=False), gr.skip())
+                time.sleep(1.0)
+            if "error" in box:
+                yield evaluate(lg, tr(lg, "download.failed"))
+                return
+            runner.preload()
+            out = evaluate(lg, tr(lg, "ui.download.done"))
+            yield (out[0], out[1], gr.update(visible=False, interactive=True), out[3])
+
+        download_btn.click(on_download, lang, pre_out)
 
         run.click(
             on_run,

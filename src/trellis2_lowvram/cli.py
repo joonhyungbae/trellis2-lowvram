@@ -54,6 +54,7 @@ def cmd_doctor(args: argparse.Namespace, paths) -> int:
     if not args.pre:
         checks += env_check.check_software()
         checks.append(_access_check())
+        checks.append(_models_check())
 
     for c in checks:
         say(f"{MARK[c.status.value]} {t(c.msg, **c.params)}")
@@ -87,7 +88,24 @@ def _access_check():
         return Check("hf_access", Status.OK, "check.hf.ok", params=p)
     if a == Access.NETWORK:
         return Check("hf_access", Status.WARN, "check.hf.network", "fix.hf.network", p)
-    return Check("hf_access", Status.FAIL, f"check.hf.{a.value}", "fix.hf.login", p)
+    fix = "fix.hf.token_no_gated" if a == Access.TOKEN_NO_GATED else "fix.hf.login"
+    return Check("hf_access", Status.FAIL, f"check.hf.{a.value}", fix, p)
+
+
+def _models_check():
+    from .env_check import Check, Status
+    from .models import missing_files
+
+    missing = missing_files("512")
+    if not missing:
+        return Check("models", Status.OK, "check.models.ok")
+    return Check(
+        "models",
+        Status.FAIL,
+        "check.models.missing",
+        "fix.models.missing",
+        {"n": len(missing), "files": missing},
+    )
 
 
 # ---------------------------------------------------------------- login

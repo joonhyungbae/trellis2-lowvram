@@ -30,3 +30,16 @@ def test_512_never_needs_1024_weights():
 def test_every_listed_model_exists_in_config():
     for keys in MODELS_BY_PIPELINE.values():
         assert set(keys) <= set(CONFIG["models"])
+
+
+def test_fine_grained_token_without_gated_scope():
+    from trellis2_lowvram.hf_access import lacks_gated_scope
+
+    def info(role, **fg):
+        return {"auth": {"accessToken": {"role": role, "fineGrained": fg}}}
+
+    assert lacks_gated_scope(info("fineGrained", canReadGatedRepos=False))
+    assert lacks_gated_scope(info("fineGrained"))
+    assert not lacks_gated_scope(info("fineGrained", canReadGatedRepos=True))
+    assert not lacks_gated_scope(info("read"))
+    assert not lacks_gated_scope({})

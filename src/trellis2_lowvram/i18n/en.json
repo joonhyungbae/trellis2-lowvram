@@ -137,5 +137,21 @@
   "load.shape_slat_decoder": "shape decoder",
   "load.tex_slat_flow_model_512": "color/material model",
   "load.tex_slat_flow_model_1024": "color/material model (1024)",
-  "load.tex_slat_decoder": "texture decoder"
+  "load.tex_slat_decoder": "texture decoder",
+  "check.hf.token_no_gated": "This token cannot read DINOv3. It is a fine-grained token created without 'Read access to contents of all public gated repos you can access'. This is separate from your account's approval.",
+  "fix.hf.token_no_gated": "At https://huggingface.co/settings/tokens press 'Create new token', choose the 'Read' tab at the top, create it and enter that token.",
+  "check.models.ok": "Model files: all downloaded",
+  "check.models.missing": "{n} model file(s) are not downloaded yet. This happens when install ran before DINOv3 approval or a download was interrupted.",
+  "fix.models.missing": "Press 'Download models' in the web interface, or run trellis2 download.",
+  "ui.preflight": "Readiness",
+  "ui.preflight.ok": "Everything is ready.",
+  "ui.preflight.problem": "Fix the [FAIL]/[!!] items below first, then press 'Check again'.",
+  "ui.token": "Hugging Face token",
+  "ui.token.info": "Create a 'Read' token at https://huggingface.co/settings/tokens and paste it (starts with hf_). It is stored only inside this install folder.",
+  "ui.token.save": "Check and save token",
+  "ui.download": "Download models (about 11GB)",
+  "ui.recheck": "Check again",
+  "ui.download.progress": "Downloading models {done}/{total}: {name}",
+  "ui.download.done": "All models downloaded. Loading them now.",
+  "ui.download.need_access": "DINOv3 access must be confirmed before downloading."
 }

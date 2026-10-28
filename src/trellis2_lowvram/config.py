@@ -38,6 +38,15 @@ def prepare_environment() -> Paths:
     # Keep the Hugging Face cache and token inside our models folder so that deleting the
     # install folder removes everything, and the student's global HF setup is not touched.
     os.environ.setdefault("HF_HOME", str(paths.models / "huggingface"))
+    # A student may already be logged in to Hugging Face on this PC (huggingface-cli / hf auth
+    # login), which stores the token in the default location, not in our HF_HOME. Use it when
+    # this install folder has no token of its own. HF_TOKEN, if set, wins anyway.
+    if "HF_TOKEN" not in os.environ and not (Path(os.environ["HF_HOME"]) / "token").is_file():
+        default = Path.home() / ".cache" / "huggingface" / "token"
+        if default.is_file():
+            token = default.read_text(encoding="utf-8").strip()
+            if token:
+                os.environ["HF_TOKEN"] = token
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     os.environ.setdefault("OPENCV_IO_ENABLE_OPENEXR", "1")
     # Gradio reports usage to its servers by default; this tool stays local.

@@ -95,6 +95,15 @@ Gotchas found so far:
   `doctor` reports it and `install` / `trellis2 install-extensions` fixes it.
 - Shims (`trellis2.bat/.sh`) use `uv run --no-sync`: a sync while the web UI runs fails on Windows
   (`trellis2-lowvram.exe` is locked, os error 32). Only install/update change the environment.
+- DINOv3 access, how it fails: **401** = no token sent (nothing in our HF_HOME; a student's own
+  `hf auth login` token lives in ~/.cache/huggingface and is now used as a fallback via HF_TOKEN);
+  **403 / GatedRepoError with a valid token** = not approved yet, or a fine-grained token without
+  "read all public gated repos" (`whoami()['auth']['accessToken']['fineGrained']['canReadGatedRepos']`).
+- Model loading: upstream builds every model with random training init before loading weights
+  (55 of 94 s on the RTX 3080 PC). `pipeline.skip_random_init` makes torch.nn.init a no-op while
+  building; all 8 models were checked byte-identical to the normal path.
+- Web UI readiness panel (top of the page): hardware, software, token (with an input box),
+  model files (with a download button). Readiness logic: `ui/app.py: readiness()`.
 - `pkill -f <pattern>` also kills the shell running it (its command line contains the pattern); kill by PID.
 - `trimesh.load(glb)` with default `process=True` takes minutes on these meshes; use `process=False`.
 
