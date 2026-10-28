@@ -64,6 +64,9 @@ The page stays on this PC (127.0.0.1); `run.bat --share` makes a public link onl
 The rotatable 3D view needs a browser with WebGPU (current Chrome or Edge); preview images and
 downloads work in any browser.
 
+**Drag and drop (Windows):** drag one or more pictures onto `make3d.bat`. It makes a model for
+each (balanced quality) and opens the `outputs` folder when done. Ubuntu: `./make3d.sh photo.jpg`.
+
 **Command line:**
 
 ```

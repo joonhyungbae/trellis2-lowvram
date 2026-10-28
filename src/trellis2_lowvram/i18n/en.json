@@ -74,7 +74,7 @@
   "install.log": "If it still fails, please attach this log file to a GitHub issue: {log}",
   "ext.not_ready": "Prebuilt 3D processing components for this operating system are not available in this version yet. This is not something you can fix. Please run update later to get a newer version.",
   "gen.no_input": "Image file not found: {path}",
-  "gen.start": "Making a 3D model from {image}: {seeds} seed(s), preset {preset}. The first run takes a few extra minutes to load models and prepare compute kernels.",
+  "gen.start": "Making a 3D model from {image}: {seeds} seed(s), preset {preset}.",
   "gen.stage": "  - {stage}",
   "gen.done": "Seed {seed} done ({seconds} s): {path}",
   "gen.report": "Per-stage memory and time report: {path}",
@@ -123,5 +123,6 @@
   "ui.oom.proposal": "Advanced settings were lowered one step. Press 'Make 3D' again.",
   "ui.done": "{n} of {total} done. Saved in: {path}",
   "ui.share_warning": "Creating a public link (gradio.live). Anyone with the link can generate on this PC's graphics card. Use it only when needed and close the window afterwards.",
-  "ui.previews": "Preview (input, front, side, back, above)"
+  "ui.previews": "Preview (input, front, side, back, above)",
+  "gen.loading": "Loading models. The first run on a PC takes a few extra minutes to prepare compute kernels."
 }

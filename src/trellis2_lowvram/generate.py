@@ -105,7 +105,9 @@ def run_job(
     job: Job,
     ask_retry: AskRetry | None = None,
     on_stage: Callable[[str], None] | None = None,
+    gen: Any = None,
 ) -> dict[str, Any]:
+    """Pass `gen` to reuse an already loaded pipeline (several images in one session)."""
     import torch
     from PIL import Image
 
@@ -113,9 +115,10 @@ def run_job(
     from .pipeline import Generator
 
     cap = apply_vram_cap(job.vram_cap_gib)
-    monitor = StageMonitor(on_stage=on_stage)
     t_load = time.perf_counter()
-    gen = Generator(job.settings.pipeline_type, monitor)
+    if gen is None:
+        gen = Generator(job.settings.pipeline_type, StageMonitor(on_stage=on_stage))
+    monitor = gen.monitor
     load_seconds = round(time.perf_counter() - t_load, 1)
     image = Image.open(job.image)
 

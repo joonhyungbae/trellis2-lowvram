@@ -74,7 +74,7 @@
   "install.log": "그래도 해결되지 않으면 이 로그 파일을 GitHub 이슈에 첨부해 주세요: {log}",
   "ext.not_ready": "이 버전에는 이 운영체제용 3D 처리 구성 요소 파일이 아직 준비되지 않았습니다. 사용자가 고칠 수 있는 문제가 아닙니다. 잠시 뒤 update 를 실행해 새 버전을 받아 주세요.",
   "gen.no_input": "이미지 파일을 찾지 못했습니다: {path}",
-  "gen.start": "{image} 로 3D 모델을 만듭니다. seed {seeds}개, 품질 단계 {preset}. 처음 실행은 모델을 불러오고 계산 코드를 준비하느라 몇 분 더 걸립니다.",
+  "gen.start": "{image} 로 3D 모델을 만듭니다. seed {seeds}개, 품질 단계 {preset}.",
   "gen.stage": "  - {stage}",
   "gen.done": "seed {seed} 완성 ({seconds}초): {path}",
   "gen.report": "단계별 메모리·시간 기록: {path}",
@@ -123,5 +123,6 @@
   "ui.oom.proposal": "고급 설정을 한 단계 낮춰 두었습니다. 다시 '3D 만들기'를 눌러 주세요.",
   "ui.done": "{total}개 중 {n}개 완성. 저장 위치: {path}",
   "ui.share_warning": "공개 링크(gradio.live)를 만듭니다. 링크를 아는 사람은 누구나 이 PC 의 그래픽카드로 생성할 수 있습니다. 필요할 때만 쓰고 끝나면 창을 닫아 주세요.",
-  "ui.previews": "미리보기 (왼쪽부터 입력, 앞, 옆, 뒤, 위)"
+  "ui.previews": "미리보기 (왼쪽부터 입력, 앞, 옆, 뒤, 위)",
+  "gen.loading": "모델을 불러옵니다. PC 에서 처음 실행할 때는 계산 코드를 준비하느라 몇 분 더 걸립니다."
 }

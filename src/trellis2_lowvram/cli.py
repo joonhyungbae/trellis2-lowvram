@@ -203,21 +203,49 @@ def _job_from_args(args: argparse.Namespace, image: Path, out_dir: Path):
 def cmd_generate(args: argparse.Namespace, paths) -> int:
     from .generate import run_job, write_report
 
-    image = Path(args.input)
-    if not image.is_file():
-        say(t("gen.no_input", path=image))
+    images = [Path(p) for p in args.input]
+    missing = [p for p in images if not p.is_file()]
+    for p in missing:
+        say(t("gen.no_input", path=p))
+    images = [p for p in images if p.is_file()]
+    if not images:
         return 1
     _prepare_gpu()
+    from .memory import StageMonitor
+    from .pipeline import Generator
+
     out_dir = Path(args.output) if args.output else paths.outputs
-    job = _job_from_args(args, image, out_dir)
-    say(t("gen.start", image=image.name, seeds=len(job.seeds), preset=args.preset))
-    report = run_job(job, _ask_retry(sys.stdin.isatty() and not args.yes), on_stage=_say_stage)
-    jp, _ = write_report(report, out_dir, f"{image.stem}-report")
-    ok = [r for r in report["results"] if r["ok"]]
-    for r in ok:
-        say(t("gen.done", seed=r["seed"], path=r["files"][0], seconds=r["seconds"]))
-    say(t("gen.report", path=jp))
-    return 0 if ok else 1
+    ask = _ask_retry(sys.stdin.isatty() and not args.yes)
+    gen, n_ok = None, 0
+    for image in images:
+        job = _job_from_args(args, image, out_dir)
+        say(t("gen.start", image=image.name, seeds=len(job.seeds), preset=args.preset))
+        if gen is None:  # load once, reuse for every image
+            say(t("gen.loading"))
+            gen = Generator(job.settings.pipeline_type, StageMonitor(on_stage=_say_stage))
+        report = run_job(job, ask, gen=gen)
+        jp, _ = write_report(report, out_dir, f"{image.stem}-report")
+        for r in report["results"]:
+            if r["ok"]:
+                n_ok += 1
+                say(t("gen.done", seed=r["seed"], path=r["files"][0], seconds=r["seconds"]))
+        say(t("gen.report", path=jp))
+    if args.open and n_ok:
+        _open_folder(out_dir)
+    return 0 if n_ok else 1
+
+
+def _open_folder(folder: Path) -> None:
+    import os
+    import subprocess
+
+    try:
+        if os.name == "nt":
+            os.startfile(folder)  # type: ignore[attr-defined]
+        else:
+            subprocess.Popen(["xdg-open", str(folder)])
+    except Exception:
+        log.debug("could not open %s", folder, exc_info=True)
 
 
 def cmd_benchmark(args: argparse.Namespace, paths) -> int:
@@ -293,8 +321,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     g = sub.add_parser("generate", help="image -> 3D model (GLB, OBJ)")
     g.add_argument(
-        "input", help="image file (PNG/JPG/WEBP); transparent PNG skips background removal"
+        "input",
+        nargs="+",
+        help="image file(s) (PNG/JPG/WEBP); transparent PNG skips background removal",
     )
+    g.add_argument("--open", action="store_true", help="open the output folder when done")
     g.add_argument("-o", "--output", help="output folder (default: outputs/)")
     g.add_argument("-y", "--yes", action="store_true", help="accept lower settings after OOM")
     add_gen_options(g)

@@ -97,6 +97,7 @@ install.sh / install.bat -> scripts/install.ps1   one-click install (uv, Python 
 update.sh / update.bat                           pull + rerun install
 trellis2.sh / trellis2.bat                       user shim: runs `trellis2-lowvram <cmd>` with the installed uv env
 run.sh / run.bat                                 opens the web UI (`trellis2 ui`)
+make3d.sh / make3d.bat                           drag pictures onto it -> `generate <files> --yes --open`
 pyproject.toml, uv.lock                          Python deps (torch 2.8.0+cu128, xformers, transformers 4.57.3)
 third_party/TRELLIS.2/                           upstream @ 75fbf01 (submodule; zip fallback without git)
 src/trellis2_lowvram/

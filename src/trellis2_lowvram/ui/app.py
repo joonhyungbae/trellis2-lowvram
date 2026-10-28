@@ -153,9 +153,7 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
                         for i in range(MAX_SEEDS)
                     ]
                 previews = L(
-                    gr.Gallery(
-                        label=t("ui.previews"), columns=1, height=280, object_fit="contain"
-                    ),
+                    gr.Gallery(label=t("ui.previews"), columns=1, height=280, object_fit="contain"),
                     "ui.previews",
                 )
                 files = L(gr.File(label=t("ui.files"), file_count="multiple"), "ui.files")
