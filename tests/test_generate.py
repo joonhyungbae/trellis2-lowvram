@@ -62,3 +62,15 @@ def test_declined_retry_stops(tmp_path):
     attempts = make_one(gen, FakeImage(), 42, PRESETS["quality"], tmp_path / "a", lambda *a: False)
     assert [a.ok for a in attempts] == [False]
     assert attempts[0].oom_stage == "export_glb"
+
+
+def test_oom_with_models_kept_on_gpu_retries_without_asking(tmp_path):
+    from dataclasses import replace
+
+    gen = FakeGen(["shape_flow"])
+    asked = []
+    s = replace(PRESETS["balanced"], gpu_memory="high")
+    attempts = make_one(gen, FakeImage(), 42, s, tmp_path / "a", lambda *a: asked.append(a))
+    assert [a.ok for a in attempts] == [False, True]
+    assert asked == []  # same quality, so nobody is asked
+    assert attempts[-1].settings["gpu_memory"] == "low"

@@ -22,7 +22,7 @@ from .. import i18n
 from ..config import get_paths
 from ..errors import explain
 from ..images import register_heif
-from ..presets import PRESETS, Settings, lower
+from ..presets import GPU_MEMORY, PRESETS, Settings, lower
 from . import running
 
 log = logging.getLogger(__name__)
@@ -206,6 +206,15 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
                     ),
                     "ui.preset",
                 )
+                gpu_memory = L(
+                    gr.Radio(
+                        [(t(f"ui.gpu_memory.{k}"), k) for k in GPU_MEMORY],
+                        value="low",
+                        label=t("ui.gpu_memory"),
+                        info=t("ui.gpu_memory.info"),
+                    ),
+                    "ui.gpu_memory",
+                )
                 with L(gr.Accordion(t("ui.advanced"), open=False), "ui.advanced"):
                     seed = L(gr.Number(value=42, precision=0, label=t("ui.seed")), "ui.seed")
                     n_seeds = L(
@@ -291,6 +300,14 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
                             choices=[(tr(lg, f"ui.preset.{k}"), k) for k in PRESET_KEYS],
                         )
                     )
+                elif key == "ui.gpu_memory":
+                    out.append(
+                        gr.update(
+                            label=tr(lg, key),
+                            info=tr(lg, f"{key}.info"),
+                            choices=[(tr(lg, f"{key}.{k}"), k) for k in GPU_MEMORY],
+                        )
+                    )
                 elif attr == "value":
                     kw = {"gpu": gpu} if key == "ui.title" else {}
                     out.append(gr.update(value=tr(lg, key, **kw)))
@@ -304,7 +321,7 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
 
         lang.change(on_lang, lang, [c for c, _, _ in labels])
 
-        def on_run(img, rm_bg, p, sd, n, res, tex, guid, fc, st, lg):
+        def on_run(img, rm_bg, p, sd, n, res, tex, guid, fc, st, gm, lg):
             from ..models import missing_files
 
             hidden = [gr.update(visible=(i == 0), value=None) for i in range(MAX_SEEDS)]
@@ -322,6 +339,7 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
                 steps=int(st),
                 tex_guidance=float(guid),
                 decimation_target=int(fc),
+                gpu_memory=gm,
             )
             seeds = [int(sd) + i for i in range(int(n))]
             out_dir = get_paths().outputs / time.strftime("%Y%m%d-%H%M%S")
@@ -572,6 +590,7 @@ def build(runner: Runner, default_lang: str) -> gr.Blocks:
                 tex_guidance,
                 faces,
                 steps,
+                gpu_memory,
                 lang,
             ],
             [status, *views, previews, files, report, resolution, texture, faces],

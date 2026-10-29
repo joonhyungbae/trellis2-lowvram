@@ -235,7 +235,12 @@ export_glb, retried with texture 1024, hit OOM in texture_decoder, retried at 51
    OOM in export is done: `generate.make_one` keeps the mesh.)
 4. M3: confirm the web UI (`run.bat`) in a real browser on Windows (Model3D needs WebGPU), and a
    HEIC upload from the browser's file picker (server side verified only through gradio_client).
-   Offloading-strength control is deliberately not implemented: StageMonitor already frees memory
-   after every stage (PLAN 3.3 "aggressive"), and "extreme" (block-wise offload) is only to be built
-   when a measurement shows a stage that does not fit (PLAN 3.3). None has so far at 512.
+   "extreme" offloading (block-wise, PLAN 3.3) is still not built: no stage at 512 has needed it.
+   The other direction exists since 2026-10-29 at the user's request: `gpu_memory="high"` (web UI
+   radio, `--gpu-memory high`) keeps models on the GPU. Measured on pc2 (RTX 3080 10GB, balanced,
+   example image 0a34..., seed 43 = second run): low 50.3 s, high 47.2 s. With a 3GB reserve only
+   DINOv3, BiRefNet and the three decoders fit (about 3.9GB); no 2.44GB flow model fits beside
+   them on 10GB (peak device use 8.8GB while a flow runs), so the flow stages do not get faster.
+   One move costs about 0.6 s each way per 2.44GB. A 16GB+ card would keep flows too (not measured).
+   The big time is export_glb (22-28 s here at 500k faces / 2048 texture; 12 s at the fast preset).
 5. M4: screenshots in the READMEs, BENCHMARKS from a real 16GB card, tag v0.1.0.

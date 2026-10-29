@@ -22,3 +22,10 @@ def test_generation_oom_drops_1024_first():
 def test_resolve_ignores_unset_overrides():
     assert resolve("balanced", pipeline_type=None, steps=None) == Settings()
     assert resolve("fast", steps=20).steps == 20
+
+
+def test_oom_first_gives_back_kept_gpu_memory_then_lowers_quality():
+    s = replace(PRESETS["quality"], gpu_memory="high")
+    first = lower(s, "export_glb")
+    assert first == replace(s, gpu_memory="low")
+    assert lower(first, "export_glb").texture_size == 2048

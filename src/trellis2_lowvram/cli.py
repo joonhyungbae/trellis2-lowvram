@@ -321,6 +321,7 @@ def _job_from_args(args: argparse.Namespace, image: Path, out_dir: Path):
         pipeline_type=args.pipeline,
         texture_size=args.texture_size,
         steps=args.steps,
+        gpu_memory=args.gpu_memory,
     )
     seeds = [args.seed + i for i in range(args.seeds)]
     return Job(image, out_dir, settings, seeds, args.vram_cap, obj=not args.no_obj)
@@ -453,6 +454,7 @@ def _say_stage(stage: str) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     from .models import PIPELINE_TYPES
+    from .presets import GPU_MEMORY
 
     p = argparse.ArgumentParser(prog="trellis2-lowvram")
     p.add_argument("--lang", choices=["ko", "en"], help="message language (default: OS)")
@@ -497,6 +499,11 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--seed", type=int, default=42)
         sp.add_argument("--seeds", type=int, default=1, help="how many seeds, from --seed up")
         sp.add_argument("--vram-cap", type=float, metavar="GB", help="simulate a smaller GPU")
+        sp.add_argument(
+            "--gpu-memory",
+            choices=GPU_MEMORY,
+            help="low (default): move models every stage; high: keep what fits on the GPU",
+        )
         sp.add_argument("--no-obj", action="store_true", help="GLB only")
 
     g = sub.add_parser("generate", help="image -> 3D model (GLB, OBJ)")

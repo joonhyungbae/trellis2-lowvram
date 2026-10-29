@@ -6,7 +6,8 @@ upstream reads its backend settings when `trellis2` is first imported.
 Differences from upstream `from_pretrained` + `run` (docs/PLAN.md 3):
 - only the models the chosen pipeline type runs are loaded (others are loaded on demand);
 - background removal uses BiRefNet (MIT) instead of RMBG-2.0 (gated, non-commercial);
-- every stage method is wrapped by StageMonitor (time, peak VRAM, OOM -> StageOOM).
+- every stage method is wrapped by StageMonitor (time, peak VRAM, OOM -> StageOOM);
+- optionally, models that fit stay on the GPU instead of moving every stage (keep_on_gpu).
 The model itself, its weights, samplers and parameters are upstream's.
 """
 
@@ -40,6 +41,11 @@ STAGES = (
 )
 
 NVDIFFRAST_FACE_LIMIT = 16_777_216
+
+# GPU memory left free for the stages themselves when models stay on the GPU. Measured beside
+# the weights at 512 on an RTX 3080: under 1.8GB up to texture 2048 / 500k faces (export_glb).
+# Larger settings are not measured; an OOM there drops back to moving models (presets.lower).
+GPU_WORK_RESERVE = 3 * 1024**3
 
 _INIT_FUNCS = (
     "uniform_",
@@ -112,6 +118,7 @@ class Generator:
             self._build(pipeline_type)
         self.pipe.cuda()  # low_vram: records the device only; models stay on the CPU
 
+        self.kept: dict[str, Any] = {}  # models staying on the GPU (keep_on_gpu)
         self.monitor.on_oom = self.offload_all
         for method, stage in STAGES:
             setattr(self.pipe, method, self.monitor.wrap(stage, getattr(self.pipe, method)))
@@ -168,7 +175,55 @@ class Generator:
                 m.eval()
                 self.pipe.models[ref.key] = m
 
+    def _movable(self) -> list[tuple[str, Any]]:
+        """Models upstream moves to the GPU and back, in the order worth keeping.
+
+        Every move costs about 0.25 s per GB each way (RTX 3080: 2.44GB flow model 0.6 s
+        up, 0.6 s back), so small models that move often go first, then flows in run order.
+        """
+        p = self.pipe
+        order = [("image_cond", p.image_cond_model), ("rembg", p.rembg_model)]
+        names = [k for k in p.models if "decoder" in k] + [k for k in p.models if "flow" in k]
+        return [(n, m) for n, m in order if m is not None] + [(k, p.models[k]) for k in names]
+
+    def keep_on_gpu(self, high: bool) -> list[str]:
+        """high: keep the models that fit on the GPU (leaving GPU_WORK_RESERVE); else none.
+
+        Upstream calls model.cpu() after each stage; for a kept model that call does nothing.
+        Returns the names kept.
+        """
+        if not high:
+            self.release_gpu()
+            return []
+        free = torch.cuda.mem_get_info()[0] - GPU_WORK_RESERVE
+        for name, m in self._movable():
+            if name in self.kept:
+                continue
+            size = _nbytes(m)
+            if size > free:
+                continue
+            try:
+                m.to(torch.device("cuda"))
+            except torch.cuda.OutOfMemoryError:  # something else took the GPU meanwhile
+                m.cpu()
+                break
+            m.cpu = _stay  # instance attribute: hides the class's cpu() for this model only
+            self.kept[name] = m
+            free -= size
+        log.info("kept on GPU: %s", ", ".join(self.kept) or "-")
+        return list(self.kept)
+
+    def release_gpu(self) -> None:
+        for m in self.kept.values():
+            del m.cpu
+            m.cpu()
+        if self.kept:
+            log.info("released from GPU: %s", ", ".join(self.kept))
+            self.kept = {}
+            torch.cuda.empty_cache()
+
     def offload_all(self) -> None:
+        self.release_gpu()
         for m in self.pipe.models.values():
             m.cpu()
         self.pipe.image_cond_model.cpu()
@@ -180,6 +235,7 @@ class Generator:
     ) -> Any:
         """remove_background=False keeps the picture as is (no cut-out, no centering crop)."""
         self.ensure(s.pipeline_type)
+        self.keep_on_gpu(s.gpu_memory == "high")
         steps = {"steps": s.steps}
         if not remove_background:
             image = image.convert("RGB")
@@ -226,6 +282,16 @@ class Generator:
         if obj:
             paths += export_obj(paths[0])
         return paths
+
+
+def _stay(*args: Any, **kwargs: Any) -> None:
+    """cpu() of a model kept on the GPU."""
+
+
+def _nbytes(m: Any) -> int:
+    module = m if isinstance(m, torch.nn.Module) else m.model  # upstream DINOv3 / BiRefNet wrap
+    tensors = list(module.parameters()) + list(module.buffers())
+    return sum(t.numel() * t.element_size() for t in tensors)
 
 
 # Share of used texels that must be see-through before the material is marked transparent.

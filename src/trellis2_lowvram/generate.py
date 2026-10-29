@@ -58,6 +58,8 @@ def make_one(
 ) -> list[SeedResult]:
     """Generate one seed and export it, lowering settings after an OOM when ask_retry agrees.
 
+    After an OOM with gpu_memory "high" the first step is "low", taken without asking.
+
     An OOM while exporting retries only the export with the mesh already made; an OOM while
     generating reruns the generation. Every attempt is returned (the last one is the outcome).
     """
@@ -94,7 +96,11 @@ def make_one(
                 )
             )
             proposed = lower(s, e.stage)
-            if proposed is None or ask_retry is None or not ask_retry(e.stage, s, proposed):
+            if proposed is None:
+                return attempts
+            # Giving back kept GPU memory lowers nothing the user sees: retry without asking.
+            same_quality = proposed.gpu_memory != s.gpu_memory
+            if not same_quality and (ask_retry is None or not ask_retry(e.stage, s, proposed)):
                 return attempts
             if not e.stage.startswith("export") or proposed.pipeline_type != s.pipeline_type:
                 mesh = None  # the mesh itself has to be made again

@@ -18,6 +18,9 @@ class Settings:
     decimation_target: int = 500_000
     max_num_tokens: int = 49152  # upstream default; only matters for 1024_cascade
     tex_guidance: float = 1.0  # texture sampler guidance_strength (upstream pipeline.json: 1.0)
+    # "low": every stage moves its model to the GPU and back (upstream low_vram).
+    # "high": models that fit stay on the GPU between stages and runs (Generator.keep_on_gpu).
+    gpu_memory: str = "low"
 
 
 PRESETS: dict[str, Settings] = {
@@ -25,6 +28,9 @@ PRESETS: dict[str, Settings] = {
     "balanced": Settings(),
     "quality": Settings(texture_size=4096, decimation_target=1_000_000),
 }
+
+
+GPU_MEMORY = ("low", "high")
 
 
 def resolve(preset: str, **overrides: object) -> Settings:
@@ -39,6 +45,8 @@ def lower(s: Settings, stage: str) -> Settings | None:
     Export (texture baking) failures lower the texture first; generation failures lower the
     resolution first, since texture size does not affect the earlier stages.
     """
+    if s.gpu_memory == "high":  # first give back what we kept on the GPU; same quality
+        return replace(s, gpu_memory="low")
     if stage.startswith("export"):
         if s.texture_size > 1024:
             return replace(s, texture_size=s.texture_size // 2)
