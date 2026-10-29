@@ -97,6 +97,12 @@ try {
     Run "install-extensions" uv run --frozen --no-dev trellis2-lowvram install-extensions
 
     $Step = 6; Write-Host "== 6/6 Hugging Face access (DINOv3) and models"
+    # A folder made with 'share-models' (e.g. by a teacher) put in here: take it in, no token needed.
+    # Moved, not copied: same drive, instant, and no second 10GB copy.
+    if (Test-Path "$Root\shared-models") {
+        Msg "install.import_models" | Out-Null
+        & uv run --frozen --no-dev trellis2-lowvram import-models "$Root\shared-models" --move
+    }
     # Waiting for DINOv3 approval is normal; the rest of the install is still usable.
     # (Keep the result right away: Msg runs uv too and resets $LASTEXITCODE.)
     & uv run --frozen --no-dev trellis2-lowvram download

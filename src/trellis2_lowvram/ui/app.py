@@ -112,7 +112,8 @@ def collect_checks(pipeline_type: str = "512", max_age: float = 0) -> list:
     if hit and time.monotonic() - hit[0] <= max_age:
         return hit[1]
     checks = run_hardware_checks(REPO_ROOT, get_paths().models) + check_software()
-    checks += [_access_check(), _models_check(pipeline_type)]
+    models = _models_check(pipeline_type)
+    checks += [_access_check(models), models]
     _checked[pipeline_type] = (time.monotonic(), checks)
     return checks
 

@@ -27,7 +27,7 @@ def test_same_placeholders_in_every_language():
 def test_keys_used_in_code_exist():
     """String literals that look like i18n keys must be defined."""
     en = i18n.load("en")
-    prefixes = "check|fix|doctor|login|download|ext|error|install|gen|ui|load|stage"
+    prefixes = "check|fix|doctor|login|download|ext|error|install|gen|ui|load|stage|share"
     pattern = re.compile(rf"\"((?:{prefixes})\.[a-z_.]+)\"")
     used = set()
     for py in SRC.rglob("*.py"):

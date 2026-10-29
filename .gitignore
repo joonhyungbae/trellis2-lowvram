@@ -3,6 +3,7 @@
 models/
 logs/
 outputs/
+shared-models/
 build/
 dist/
 __pycache__/

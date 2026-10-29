@@ -144,3 +144,20 @@ def missing_files(pipeline_type: str = "512") -> list[str]:
         (REMBG_REPO, "birefnet.py"),
     ]
     return [f"{repo}/{name}" for repo, name in want if not cached(repo, name)]
+
+
+def share_plan(pipeline_types: tuple[str, ...]) -> tuple[list[tuple[str, str]], list[str]]:
+    """What a shared models folder needs: (repo, file) pairs and repos copied whole.
+
+    Call only when missing_files() is empty for every pipeline type (reads the cached config).
+    """
+    from huggingface_hub import try_to_load_from_cache
+
+    with open(try_to_load_from_cache(TRELLIS_REPO, "pipeline.json"), encoding="utf-8") as f:
+        config = json.load(f)["args"]
+    files = {(TRELLIS_REPO, "pipeline.json"): None}
+    for pt in pipeline_types:
+        for r in weights_for(pt, config):
+            files.update({(r.repo_id, r.name + ext): None for ext in (".json", ".safetensors")})
+    image_cond = config["image_cond_model"]["args"]["model_name"]
+    return list(files), [image_cond, REMBG_REPO]

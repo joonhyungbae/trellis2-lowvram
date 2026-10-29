@@ -70,6 +70,11 @@ STEP=5; echo "== 5/6 CUDA extensions"
 uv run --frozen --no-dev trellis2-lowvram install-extensions
 
 STEP=6; echo "== 6/6 Hugging Face access (DINOv3) and models"
+# A folder made with 'share-models' (e.g. by a teacher) put in here: take it in, no token needed.
+if [ -d "$ROOT/shared-models" ]; then
+  msg install.import_models || true
+  uv run --frozen --no-dev trellis2-lowvram import-models "$ROOT/shared-models" --move || true
+fi
 MODELS_OK=1
 if ! uv run --frozen --no-dev trellis2-lowvram download; then
   # Usually: no token or not approved yet. login explains the steps; then try once more.

@@ -1,7 +1,8 @@
 """Hugging Face token and gated-model access.
 
 DINOv3 (the image encoder TRELLIS.2 uses) is gated with manual approval by Meta. Each student
-requests access with their own account; we never redistribute the weights (docs/PLAN.md 0).
+requests access with their own account, or takes in a folder from someone approved (share.py);
+this repository never contains the weights (docs/PLAN.md Q2).
 The token is stored under our HF_HOME (models/huggingface/token), not in the user's global setup.
 """
 

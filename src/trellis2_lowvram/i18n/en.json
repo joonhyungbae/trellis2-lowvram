@@ -174,5 +174,16 @@
   "install.shortcut": "Made a shortcut on the desktop: {path}",
   "ui.already_running": "The web interface is already open, so it is not started again (that would load every model into memory twice). Opening it in the browser: {url}",
   "gen.ui_running": "Note: the web interface is also running ({url}). Both keep the models in memory, so this can be very slow on a 32GB PC. If it is slow, close the web interface window or make the model in the web page instead.",
-  "ui.fix.hf.login": "Create a Hugging Face account, request DINOv3 access ({url}), then create a 'Read' token and paste it into the box below."
+  "ui.fix.hf.login": "Create a Hugging Face account, request DINOv3 access ({url}), then create a 'Read' token and paste it into the box below.",
+  "check.hf.not_needed": "Hugging Face: the model files are already here, so no token or DINOv3 approval is needed.",
+  "share.need_models": "This PC does not have all the models to share. Download them first with trellis2 download (to share 1024 as well: --pipeline 512 1024_cascade).",
+  "share.start": "Copying the models into a folder to share ({pipelines}). This takes a few minutes. Folder: {path}",
+  "share.done": "Done ({size}GB): {path}\nGive this whole folder to students (USB stick or shared drive). They put it, as it is, into their install folder (where install.bat is) and run install.bat: the models are installed without a token or approval. On a PC that is already installed, run trellis2 import-models <folder>.",
+  "share.license": "Note: the DINOv3 License requires a copy of the license with every copy of the weights. Keep DINOv3-LICENSE.md in the folder. Whoever receives it must follow the same terms (no military or weapons use, follow applicable laws, credit DINOv3 in publications).",
+  "share.import_start": "Taking in shared models: {path}",
+  "share.not_a_share": "No models found in {path}. Choose a folder made with trellis2 share-models (it has a huggingface folder inside).",
+  "share.imported": "Added {n} model files. Settings usable now: {pipelines}",
+  "share.incomplete": "The folder does not have every file the 512 setting needs. Ask the person who shared it to run trellis2 share-models again, or get the rest with trellis2 download.",
+  "share.readme": "trellis2-lowvram models folder\n\nThis folder holds the model weights trellis2-lowvram uses (TRELLIS.2, DINOv3, BiRefNet).\n\nHow to use\n1. Not installed yet: put this whole folder into the trellis2-lowvram install folder (where install.bat is) and run install.bat. The installer takes the models from here, so no Hugging Face token or DINOv3 approval is needed.\n2. Already installed: in the install folder, run trellis2 import-models <path to this folder>.\n\nLicenses\n- DINOv3: Meta's DINOv3 License (DINOv3-LICENSE.md). When you pass it on, include this license copy. No prohibited uses such as military or weapons, follow applicable laws (including trade controls), and credit DINOv3 in publications.\n- TRELLIS.2 (microsoft/TRELLIS.2-4B, microsoft/TRELLIS-image-large): MIT\n- BiRefNet (ZhengPeng7/BiRefNet): MIT\n- Textures in the resulting GLB are baked with nvdiffrast, which is licensed for non-commercial research/evaluation only. See THIRD_PARTY_LICENSES.md in trellis2-lowvram.",
+  "install.import_models": "Found a shared models folder in the install folder. Taking those models in (no token or approval needed)."
 }

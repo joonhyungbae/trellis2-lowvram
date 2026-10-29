@@ -17,6 +17,7 @@ from pathlib import Path
 from . import __version__
 from .config import REPO_ROOT, prepare_environment
 from .i18n import set_lang, t
+from .share import SHARE_DIR
 
 log = logging.getLogger("trellis2_lowvram")
 
@@ -53,8 +54,8 @@ def cmd_doctor(args: argparse.Namespace, paths) -> int:
     checks = env_check.run_hardware_checks(REPO_ROOT, paths.models)
     if not args.pre:
         checks += env_check.check_software()
-        checks.append(_access_check())
-        checks.append(_models_check())
+        models = _models_check()
+        checks += [_access_check(models), models]
 
     for c in checks:
         say(f"{MARK[c.status.value]} {t(c.msg, **c.params)}")
@@ -78,10 +79,13 @@ def cmd_doctor(args: argparse.Namespace, paths) -> int:
     return 1 if result == Status.FAIL else 0
 
 
-def _access_check():
+def _access_check(models=None):
+    """DINOv3 access; not needed (and not asked) when the models check passed already."""
     from .env_check import Check, Status
     from .hf_access import DINOV3_REPO, DINOV3_URL, Access, check_access
 
+    if models is not None and models.status == Status.OK:
+        return Check("hf_access", Status.OK, "check.hf.not_needed")
     a = check_access()
     p = {"repo": DINOV3_REPO, "url": DINOV3_URL}
     if a == Access.OK:
@@ -146,8 +150,11 @@ def cmd_login(args: argparse.Namespace, paths) -> int:
 
 def cmd_download(args: argparse.Namespace, paths) -> int:
     from .hf_access import DINOV3_URL, Access, check_access
-    from .models import download
+    from .models import download, missing_files
 
+    if not any(missing_files(pt) for pt in args.pipeline):  # e.g. taken from a shared folder
+        say(t("download.done"))
+        return 0
     if check_access() != Access.OK:
         say(t("download.need_access", url=DINOV3_URL))
         return 2
@@ -166,6 +173,66 @@ def cmd_download(args: argparse.Namespace, paths) -> int:
         say(t("download.failed"))
         return 1
     say(t("download.done"))
+    return 0
+
+
+def _complete_pipelines() -> tuple[str, ...]:
+    from .models import PIPELINE_TYPES, missing_files
+
+    return tuple(pt for pt in PIPELINE_TYPES if not missing_files(pt))
+
+
+def cmd_share_models(args: argparse.Namespace, paths) -> int:
+    import huggingface_hub.constants as hc
+
+    from .hf_access import DINOV3_REPO
+    from .i18n import load
+    from .models import share_plan
+    from .share import export
+
+    have = _complete_pipelines()
+    wanted = tuple(args.pipeline) if args.pipeline else have
+    if not wanted or any(pt not in have for pt in wanted):
+        say(t("share.need_models"))
+        return 1
+    dest = Path(args.out).expanduser().resolve() if args.out else paths.home / SHARE_DIR
+    say(t("share.start", path=dest, pipelines=", ".join(wanted)))
+    files, whole = share_plan(wanted)
+    readme = load("ko")["share.readme"] + "\n\n" + load("en")["share.readme"]
+    copied = export(Path(hc.HF_HUB_CACHE), dest, files, whole, DINOV3_REPO, readme, _show_file)
+    log.info("shared %d bytes to %s", copied, dest)
+    say(t("share.done", path=dest, size=f"{_folder_gb(dest):.1f}"))
+    say(t("share.license"))
+    if args.open:
+        _open_folder(dest)
+    return 0
+
+
+def _show_file(name: str) -> None:
+    say(f"  {name}")
+
+
+def _folder_gb(folder: Path) -> float:
+    return sum(p.stat().st_size for p in folder.rglob("*") if p.is_file()) / 1024**3
+
+
+def cmd_import_models(args: argparse.Namespace, paths) -> int:
+    import huggingface_hub.constants as hc
+
+    from .share import NotAShare, import_
+
+    folder = Path(args.folder).expanduser().resolve()
+    say(t("share.import_start", path=folder))
+    try:
+        n = import_(folder, Path(hc.HF_HUB_CACHE), args.move, _show_file)
+    except NotAShare:
+        say(t("share.not_a_share", path=folder))
+        return 1
+    have = _complete_pipelines()
+    say(t("share.imported", n=n, pipelines=", ".join(have) or "-"))
+    if "512" not in have:
+        say(t("share.incomplete"))
+        return 1
     return 0
 
 
@@ -401,6 +468,17 @@ def build_parser() -> argparse.ArgumentParser:
     dl = sub.add_parser("download", help="download model weights")
     dl.add_argument("--pipeline", nargs="+", choices=PIPELINE_TYPES, default=["512"])
     dl.set_defaults(func=cmd_download)
+
+    sh = sub.add_parser("share-models", help="copy downloaded models into a folder for others")
+    sh.add_argument("--pipeline", nargs="+", choices=PIPELINE_TYPES, help="default: all present")
+    sh.add_argument("-o", "--out", help="folder (default: shared-models/ in this install)")
+    sh.add_argument("--open", action="store_true", help="open the folder when done")
+    sh.set_defaults(func=cmd_share_models)
+
+    im = sub.add_parser("import-models", help="take in a folder made with share-models")
+    im.add_argument("folder")
+    im.add_argument("--move", action="store_true", help="move files instead of copying")
+    im.set_defaults(func=cmd_import_models)
 
     ie = sub.add_parser("install-extensions", help="install prebuilt CUDA extension wheels")
     ie.set_defaults(func=cmd_install_extensions)
