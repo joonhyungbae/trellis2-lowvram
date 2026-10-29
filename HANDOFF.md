@@ -77,6 +77,13 @@ Verified on Windows 11 (pc2: RTX 3080 10GB, driver 610.88, ZIP download without 
     (get_token() None) -> doctor FAIL (no token, models missing) -> `import-models` (28 files,
     3 min) -> doctor OK ("no token needed") -> `generate --preset fast`: GLB in 85 s, exit 0.
     No token file was copied. Installer auto-import of `shared-models/` is parsed only.
+  - A student's copy that came through Google Drive did not work: the folder download arrived as
+    numbered zip parts, and the five 2.58GB flow weights came separately, outside their folder,
+    named `<name>-00N.safetensors`. `import-models` now gathers every hub in the folder and puts
+    such files back by name (suffix `-NNN` / ` (N)` dropped) and size (`files.json`, written by
+    `share-models`; older folders: `ckpts/<x>.json` implies `<x>.safetensors`). Reproduced with
+    the real files (hard links, no files.json, two hub folders, 5 renamed weights at the top):
+    28 files in, 512 and 1024 complete, doctor OK without a token.
 
 Not verified yet:
 - `install.bat` double-click itself (tested via `install.ps1` over SSH; same script).

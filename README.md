@@ -60,6 +60,9 @@ without a token or approval of their own.
 3. Each student puts `shared-models`, as it is, into their trellis2-lowvram folder and runs
    `install.bat`. The installer moves the models in, so the token step passes. Students who have
    already installed run `trellis2 import-models <folder>`.
+   If it arrived as several zip parts (Google Drive does this), extract every part inside the same
+   `shared-models` folder and put the files over 2GB that came separately (a number such as `-008`
+   added to the name) there too, without renaming them. Anything still missing is named.
 
 With all model files present, no Hugging Face token is needed to run. The DINOv3 License requires
 a copy of the license with every copy of the weights: keep `DINOv3-LICENSE.md` in the folder.

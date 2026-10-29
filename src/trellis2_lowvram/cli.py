@@ -224,12 +224,16 @@ def cmd_import_models(args: argparse.Namespace, paths) -> int:
     folder = Path(args.folder).expanduser().resolve()
     say(t("share.import_start", path=folder))
     try:
-        n = import_(folder, Path(hc.HF_HUB_CACHE), args.move, _show_file)
+        n, missing = import_(folder, Path(hc.HF_HUB_CACHE), args.move, _show_file)
     except NotAShare:
         say(t("share.not_a_share", path=folder))
         return 1
     have = _complete_pipelines()
     say(t("share.imported", n=n, pipelines=", ".join(have) or "-"))
+    if missing:
+        say(t("share.missing", n=len(missing)))
+        for name in missing:
+            say(f"  - {name}")
     if "512" not in have:
         say(t("share.incomplete"))
         return 1
