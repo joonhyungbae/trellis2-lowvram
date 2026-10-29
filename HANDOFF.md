@@ -72,6 +72,11 @@ Verified on Windows 11 (pc2: RTX 3080 10GB, driver 610.88, ZIP download without 
   - `trellis2.bat` copied to a folder without `.venv` prints "install first" and exits 1.
   - `update.bat` git detection: the old `>/dev/null` line never found git; fixed line does.
   - `ui/running.py` against a live UI, a stale file and no file.
+  - Model sharing: `share-models` made `shared-models/` (15.5GB with 512 + 1024, 3 min; 512-only
+    files are about 10.7GB). Then, as a student: empty `TRELLIS2_LOWVRAM_MODELS`, `HF_TOKEN=""`
+    (get_token() None) -> doctor FAIL (no token, models missing) -> `import-models` (28 files,
+    3 min) -> doctor OK ("no token needed") -> `generate --preset fast`: GLB in 85 s, exit 0.
+    No token file was copied. Installer auto-import of `shared-models/` is parsed only.
 
 Not verified yet:
 - `install.bat` double-click itself (tested via `install.ps1` over SSH; same script).
@@ -167,6 +172,7 @@ src/trellis2_lowvram/
   errors.py        explain(exception) -> i18n what/fix keys for CLI and UI
   ui/app.py        Gradio UI
   ui/running.py    single web UI per install (logs/ui-running.json)
+  share.py         share-models / import-models: HF cache layout folder, no token, + license
   i18n/            ko.json, en.json
 wheels/sources.toml, build.py, manifest.json     pinned extension sources, builder, release hashes
 .github/workflows/tests.yml, build-wheels.yml     CPU tests + lint; wheel builds (manual dispatch)
@@ -200,7 +206,11 @@ Details and sources: `docs/PLAN.md` section 2.
 - `ATTN_BACKEND` / `SPARSE_ATTN_BACKEND` are read at import time: set them before importing `trellis2`.
 - `pipeline.json` default is `1024_cascade`; we default to `512` (1024 is experimental, 1536 blocked).
 - DINOv3 (`facebook/dinov3-vitl16-pretrain-lvd1689m`) is gated with **manual** approval. Each
-  user requests access with their own account; weights are never redistributed.
+  user requests access with their own account, **or** someone approved (a teacher) hands out a
+  `share-models` folder (2026-10-29, user's decision). The DINOv3 License (GitHub
+  facebookresearch/dinov3 LICENSE.md, 1(a) and 1(b)(i)) allows distribution with a copy of the
+  license; the folder carries the snapshot's LICENSE.md. This repo never contains weights.
+  Not checked: whether the Hugging Face request form adds terms beyond that LICENSE.md.
 - Upstream background removal is `briaai/RMBG-2.0` (gated, non-commercial). We use
   `ZhengPeng7/BiRefNet` (MIT) with the same upstream class.
 - GLB texture baking needs nvdiffrast (non-commercial license). nvdiffrec is not used.

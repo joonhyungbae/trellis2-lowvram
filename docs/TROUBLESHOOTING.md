@@ -54,6 +54,11 @@ downloaded files are skipped.*
 *DINOv3 access is approved by hand (hours to days). Everything else is installed meanwhile; press
 **Download models** in the web page after the approval email.*
 
+기다리기 싫다면, 승인받은 사람(선생님)이 `trellis2 share-models` 로 만든 `shared-models` 폴더를 받아
+`trellis2 import-models <폴더>` 를 실행하세요. 모델이 다 있으면 토큰 없이 실행됩니다(README 의 "모델 나눠 주기").
+*To skip the wait, get a `shared-models` folder from someone approved and run
+`trellis2 import-models <folder>`; with all models present no token is needed (README, "Sharing the models").*
+
 | 메시지 / Message | 뜻과 할 일 / Meaning, what to do |
 |---|---|
 | 토큰이 없습니다 / No token | [토큰 만들기](https://huggingface.co/settings/tokens) → **Read** 토큰을 웹 화면이나 `trellis2 login` 에 입력 / create a Read token and enter it |

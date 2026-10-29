@@ -18,6 +18,13 @@ Always check the linked license text; this page is a summary, not legal advice.
 - **DINOv3** (image encoder) is under Meta's DINOv3 License, which you accept when you request
   access on Hugging Face. 이미지 인코더 **DINOv3** 는 Hugging Face 에서 신청할 때 동의하는 Meta 의
   DINOv3 License 를 따릅니다.
+- Sharing the weights (`trellis2 share-models`): the DINOv3 License (section 1(a), 1(b)(i))
+  allows distributing them **with a copy of the license**, under the same terms; the folder gets
+  `DINOv3-LICENSE.md` for that. TRELLIS.2 and BiRefNet weights are MIT. This repository itself
+  still contains no weights. 가중치 나눠 주기(`trellis2 share-models`): DINOv3 License 1(a), 1(b)(i)
+  는 **라이선스 사본을 함께 주는 조건으로** 같은 조건 아래 배포를 허용합니다. 그래서 폴더에
+  `DINOv3-LICENSE.md` 를 넣습니다. TRELLIS.2 와 BiRefNet 가중치는 MIT 입니다. 이 저장소에는 여전히
+  가중치가 없습니다.
 - Background removal uses **BiRefNet (MIT)**, not upstream's default RMBG-2.0 (non-commercial).
   배경 제거는 비상업 조건이 있는 RMBG-2.0 대신 **BiRefNet(MIT)** 을 씁니다.
 

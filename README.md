@@ -48,6 +48,24 @@ You do **not** need to install Python, CUDA, Visual Studio or conda yourself.
 
 To uninstall, delete the folder. To update, run `update.bat` / `./update.sh`.
 
+### Sharing the models with a class (install without approval)
+
+Once one person with DINOv3 approval (say, the teacher) has the models, students can install
+without a token or approval of their own.
+
+1. On the teacher's PC, in this folder, run `trellis2 share-models --open` (PowerShell:
+   `.\trellis2 share-models --open`). It makes a `shared-models` folder (about 11GB with only
+   512, about 16GB with 1024 too).
+2. Give that whole folder to the students (USB stick or shared drive).
+3. Each student puts `shared-models`, as it is, into their trellis2-lowvram folder and runs
+   `install.bat`. The installer moves the models in, so the token step passes. Students who have
+   already installed run `trellis2 import-models <folder>`.
+
+With all model files present, no Hugging Face token is needed to run. The DINOv3 License requires
+a copy of the license with every copy of the weights: keep `DINOv3-LICENSE.md` in the folder.
+Whoever receives it must follow the same terms (no military or weapons use, follow applicable
+laws including trade controls, credit DINOv3 in publications).
+
 ## Check your PC
 
 ```

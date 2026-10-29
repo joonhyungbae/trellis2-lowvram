@@ -43,6 +43,20 @@ Python, CUDA, Visual Studio, conda 를 따로 설치할 필요는 **없습니다
 
 지우려면 폴더를 삭제하면 됩니다. 업데이트는 `update.bat` / `./update.sh` 입니다.
 
+### 수업에서 모델 나눠 주기 (승인 없이 설치)
+
+DINOv3 승인을 받은 한 사람(예: 선생님)이 모델을 받아 두면, 학생들은 토큰이나 승인 없이 설치할 수 있습니다.
+
+1. 선생님 PC 의 이 폴더에서 `trellis2 share-models --open` 을 실행합니다(PowerShell 은 `.\trellis2 share-models --open`).
+   `shared-models` 폴더(512 만 받았다면 약 11GB, 1024 까지면 약 16GB)가 생깁니다.
+2. 이 폴더를 통째로 USB 나 공유 드라이브로 학생에게 줍니다.
+3. 학생은 trellis2-lowvram 폴더 안에 `shared-models` 폴더를 그대로 넣고 `install.bat` 을 실행합니다.
+   설치 프로그램이 모델을 옮겨 가므로 토큰을 묻는 단계는 지나갑니다. 이미 설치한 학생은 `trellis2 import-models <폴더>` 를 실행합니다.
+
+모델이 다 있으면 Hugging Face 토큰이 없어도 그대로 실행됩니다. DINOv3 License 는 가중치를 남에게 줄 때
+라이선스 사본을 함께 주라고 정하므로, 폴더 안의 `DINOv3-LICENSE.md` 를 지우지 마세요. 받는 사람도 같은 조건
+(군사·무기 용도 금지, 수출 통제 등 관련 법 준수, 발표물에 DINOv3 사용 표기)을 지켜야 합니다.
+
 ## PC 점검
 
 ```
