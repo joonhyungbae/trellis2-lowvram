@@ -109,7 +109,7 @@
   "ui.resolution.info": "1024 는 실험적입니다. 그래픽 메모리가 많이 들고(약 8~12GB) 느립니다.",
   "ui.texture": "텍스처 크기",
   "ui.tex_guidance": "텍스처 guidance",
-  "ui.tex_guidance.info": "높이면 색이 사진을 더 강하게 따라갑니다. 기본 1.0.",
+  "ui.tex_guidance.info": "1.0 보다 높이면 색이 그림을 더 강하게 따라가고 더 진해집니다. 평평하게 칠한 그림이 회색으로 나오면 3 을 써 보세요. 기본 1.0(끔).",
   "ui.faces": "면 수(줄이기 목표)",
   "ui.run": "3D 만들기",
   "ui.files": "내려받기 (GLB, OBJ zip)",

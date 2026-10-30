@@ -254,7 +254,7 @@ class Generator:
                 preprocess_image=remove_background,
                 sparse_structure_sampler_params=steps,
                 shape_slat_sampler_params=steps,
-                tex_slat_sampler_params={**steps, "guidance_strength": s.tex_guidance},
+                tex_slat_sampler_params={**steps, **tex_guidance(s.tex_guidance)},
                 pipeline_type=s.pipeline_type,
                 max_num_tokens=s.max_num_tokens,
             )
@@ -292,6 +292,19 @@ class Generator:
         if obj:
             paths += export_obj(paths[0])
         return paths
+
+
+def tex_guidance(strength: float) -> dict[str, Any]:
+    """Texture sampler guidance. Upstream's 1.0 means no guidance at all (cond only).
+
+    Above 1.0 the whole schedule is guided with rescale 0.5, the combination we measured
+    (2026-10-31, strength 3): flat painted cacti keep their stripe colours (saturation 105 ->
+    156) instead of greying out; upstream examples get more saturated. Upstream's own interval
+    [0.6, 0.9] with rescale 0 was not measured.
+    """
+    if strength <= 1.0:
+        return {"guidance_strength": strength}
+    return {"guidance_strength": strength, "guidance_rescale": 0.5, "guidance_interval": [0.0, 1.0]}
 
 
 @contextlib.contextmanager

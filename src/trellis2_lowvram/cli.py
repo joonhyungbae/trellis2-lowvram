@@ -322,6 +322,7 @@ def _job_from_args(args: argparse.Namespace, image: Path, out_dir: Path):
         texture_size=args.texture_size,
         steps=args.steps,
         gpu_memory=args.gpu_memory,
+        tex_guidance=args.tex_guidance,
     )
     seeds = [args.seed + i for i in range(args.seeds)]
     return Job(image, out_dir, settings, seeds, args.vram_cap, obj=not args.no_obj)
@@ -496,6 +497,12 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--pipeline", choices=PIPELINE_TYPES, help="512 (default) or 1024_cascade")
         sp.add_argument("--texture-size", type=int, choices=[1024, 2048, 4096])
         sp.add_argument("--steps", type=int, help="sampling steps for every stage")
+        sp.add_argument(
+            "--tex-guidance",
+            type=float,
+            metavar="X",
+            help="texture guidance, 1.0 (default) = off; 3 helps flat painted pictures keep colour",
+        )
         sp.add_argument("--seed", type=int, default=42)
         sp.add_argument("--seeds", type=int, default=1, help="how many seeds, from --seed up")
         sp.add_argument("--vram-cap", type=float, metavar="GB", help="simulate a smaller GPU")

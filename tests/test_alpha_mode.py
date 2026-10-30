@@ -43,3 +43,10 @@ def test_mask_drops_faces_nobody_would_see():
     assert set_alpha_mode(mesh) == "MASK"
     assert len(mesh.faces) == 40
     assert mesh.visual.material.alphaCutoff == pytest.approx(0.1)
+
+
+def test_tex_guidance_off_stays_upstream():
+    from trellis2_lowvram.pipeline import tex_guidance
+
+    assert tex_guidance(1.0) == {"guidance_strength": 1.0}
+    assert tex_guidance(3.0)["guidance_interval"] == [0.0, 1.0]

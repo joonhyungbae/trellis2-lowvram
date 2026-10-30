@@ -109,7 +109,7 @@
   "ui.resolution.info": "1024 is experimental: it needs much more graphics memory (about 8-12GB) and time.",
   "ui.texture": "Texture size",
   "ui.tex_guidance": "Texture guidance",
-  "ui.tex_guidance.info": "Higher makes colors follow the picture more strongly. Default 1.0.",
+  "ui.tex_guidance.info": "Above 1.0 colors follow the picture more strongly and get more saturated. Try 3 for flat painted pictures that come out grey. Default 1.0 (off).",
   "ui.faces": "Faces (reduction target)",
   "ui.run": "Make 3D",
   "ui.files": "Download (GLB, OBJ zip)",
