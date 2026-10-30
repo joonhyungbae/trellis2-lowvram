@@ -107,7 +107,23 @@ Gotchas found so far:
 - `huggingface_hub` 0.36 `login()` has no `skip_if_logged_in`.
 - `o-voxel/` has no license file of its own; the wheel gets the TRELLIS.2 root LICENSE.
 - Upstream `to_glb` bakes alpha but always writes `alphaMode=OPAQUE`; `pipeline.set_alpha_mode`
-  switches to BLEND when >1% of used texels are see-through (glass, jellyfish).
+  picks from the share of used texels with alpha < 250: <=1% OPAQUE, <=50% BLEND (glass,
+  jellyfish), more MASK (cutoff 0.1, faces entirely below it dropped), or OPAQUE when >95% would be
+  hidden. Painted cut-outs (2026-10-30/31, a class's 36 desert-plant PNGs) gave 65-100%
+  see-through on solid cacti and trees (BLEND showed faint ghosts) and alpha-0 ground sheets or
+  slabs around small cacti and grass (MASK hides them: prickly pear slab -> three pads, small
+  column sheet gone). A glowing flower had 100% below the cutoff and stays OPAQUE.
+- Export does not remesh (`remesh=False`; upstream's app uses narrow-band dual contouring). On thin
+  open shapes the remesh grew see-through sheets hanging from every branch to the ground (bare
+  tree, saguaro) and a bare tree took 5-30+ min; without it 12-60 s and clean (to_glb then writes
+  doubleSided materials). Crown, brick pillar and turret look the same either way. Without
+  remeshing, upstream's cleanup leaves some zero-area faces and xatlas fails
+  (`ASSERT: texcoord.x >= 0`, then "CUDA error: invalid configuration argument" or a segfault):
+  saguaro at 200k/300k faces, tree at 500k. `pipeline.drop_degenerate_faces` removes them before
+  unwrapping (20-532 faces); all three then export in 6-12 s.
+- Transparent PNGs are framed by `images.frame_cutout` (alpha > 25), not upstream preprocess_image
+  (alpha > 204): soft painted alpha (twigs, grass tips) was cropped away. Same black-premultiplied
+  square crop otherwise.
 - Transparent containers: only the shell is generated; contents seen through glass are lost.
 - Windows NVIDIA drivers spill to shared system memory instead of OOM (slow, not an error).
 - Gradio sends usage analytics by default; `config.prepare_environment` sets GRADIO_ANALYTICS_ENABLED=False.
@@ -148,7 +164,7 @@ Gotchas found so far:
 - Transparency is unstable on the glass-tube sample `T`: same picture, seed 42, fast preset gave
   1.3% (RGBA PNG), 4.0% (JPEG) and 77.6% (HEIC) see-through texels (BiRefNet masks identical,
   pixels identical up to compression). The 77.6% model looks like dripping strands. Not caused by
-  input handling; worth a look at `TRANSPARENT_SHARE` / alpha baking later.
+  input handling. Likely the remesh sheets above (now off, and >50% stays OPAQUE); not re-run.
 - 'Stop' in the web UI is checked at stage boundaries (StageMonitor.on_stage raises
   `ui.app.Cancelled`); upstream stages cannot be interrupted midway.
 
@@ -175,7 +191,7 @@ src/trellis2_lowvram/
   memory.py        StageMonitor, StageOOM, apply_vram_cap
   presets.py       fast | balanced | quality, lower() ladder
   preview.py       4-view nvdiffrast render (UI gallery, docs)
-  images.py        open_image: EXIF rotation, HEIC (pillow-heif), BadImage
+  images.py        open_image: EXIF rotation, HEIC (pillow-heif), BadImage; frame_cutout
   errors.py        explain(exception) -> i18n what/fix keys for CLI and UI
   ui/app.py        Gradio UI
   ui/running.py    single web UI per install (logs/ui-running.json)

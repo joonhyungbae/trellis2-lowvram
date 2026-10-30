@@ -5,7 +5,8 @@ upstream reads its backend settings when `trellis2` is first imported.
 
 Differences from upstream `from_pretrained` + `run` (docs/PLAN.md 3):
 - only the models the chosen pipeline type runs are loaded (others are loaded on demand);
-- background removal uses BiRefNet (MIT) instead of RMBG-2.0 (gated, non-commercial);
+- background removal uses BiRefNet (MIT) instead of RMBG-2.0 (gated, non-commercial), and
+  transparent pictures keep their soft edges when framed (images.frame_cutout);
 - every stage method is wrapped by StageMonitor (time, peak VRAM, OOM -> StageOOM);
 - optionally, models that fit stay on the GPU instead of moving every stage (keep_on_gpu).
 The model itself, its weights, samplers and parameters are upstream's.
@@ -23,6 +24,7 @@ import torch
 from PIL import Image
 
 from . import models as weights
+from .images import frame_cutout
 from .memory import StageMonitor, StageOOM
 from .presets import Settings
 
@@ -233,10 +235,16 @@ class Generator:
     def generate(
         self, image: Image.Image, seed: int, s: Settings, remove_background: bool = True
     ) -> Any:
-        """remove_background=False keeps the picture as is (no cut-out, no centering crop)."""
+        """remove_background=False keeps the picture as is (no cut-out, no centering crop).
+
+        Transparent pictures are framed by images.frame_cutout instead of upstream.
+        """
         self.ensure(s.pipeline_type)
         self.keep_on_gpu(s.gpu_memory == "high")
         steps = {"steps": s.steps}
+        framed = frame_cutout(image) if remove_background else None
+        if framed is not None:
+            image, remove_background = framed, False
         if not remove_background:
             image = image.convert("RGB")
         try:
@@ -261,20 +269,22 @@ class Generator:
 
         mon = self.monitor
         mon.wrap("export_simplify", mesh.simplify)(NVDIFFRAST_FACE_LIMIT)
-        glb = mon.wrap("export_glb", o_voxel.postprocess.to_glb)(
-            vertices=mesh.vertices,
-            faces=mesh.faces,
-            attr_volume=mesh.attrs,
-            coords=mesh.coords,
-            attr_layout=mesh.layout,
-            voxel_size=mesh.voxel_size,
-            aabb=[[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]],
-            decimation_target=s.decimation_target,
-            texture_size=s.texture_size,
-            remesh=True,
-            remesh_band=1,
-            remesh_project=0,
-        )
+        with drop_degenerate_faces():
+            glb = mon.wrap("export_glb", o_voxel.postprocess.to_glb)(
+                vertices=mesh.vertices,
+                faces=mesh.faces,
+                attr_volume=mesh.attrs,
+                coords=mesh.coords,
+                attr_layout=mesh.layout,
+                voxel_size=mesh.voxel_size,
+                aabb=[[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]],
+                decimation_target=s.decimation_target,
+                texture_size=s.texture_size,
+                # Upstream's app remeshes (narrow-band dual contouring). On thin open shapes (bare
+                # branches, a saguaro) that grows see-through sheets hanging down to the ground;
+                # without it they are clean and solid objects look the same (HANDOFF, verified).
+                remesh=False,
+            )
         set_alpha_mode(glb)
         out_base.parent.mkdir(parents=True, exist_ok=True)
         paths = [out_base.with_suffix(".glb")]
@@ -282,6 +292,36 @@ class Generator:
         if obj:
             paths += export_obj(paths[0])
         return paths
+
+
+@contextlib.contextmanager
+def drop_degenerate_faces() -> Iterator[None]:
+    """Drop zero-area faces before to_glb unwraps UVs (only reached with remesh=False).
+
+    Upstream's cleanup without remeshing (repair_non_manifold_edges) leaves a few dozen
+    zero-area faces; xatlas then fails ("texcoord.x >= 0") and texture sampling crashes with
+    "CUDA error: invalid configuration argument" or a segfault. Seen on a saguaro at 200k and
+    300k faces and a bare tree at 500k; all three export fine with this (HANDOFF).
+    """
+    import cumesh
+
+    unify = cumesh.CuMesh.unify_face_orientations  # the last step before unwrapping
+
+    def patched(self: Any, *args: Any, **kwargs: Any) -> Any:
+        v, f = self.read()
+        p = v[f.long()]
+        area = torch.linalg.cross(p[:, 1] - p[:, 0], p[:, 2] - p[:, 0]).norm(dim=-1)
+        keep = area > 1e-12
+        if not bool(keep.all()):
+            log.info("dropping %d zero-area faces before UV unwrap", int((~keep).sum()))
+            self.init(v, f[keep])
+        return unify(self, *args, **kwargs)
+
+    cumesh.CuMesh.unify_face_orientations = patched
+    try:
+        yield
+    finally:
+        cumesh.CuMesh.unify_face_orientations = unify
 
 
 def _stay(*args: Any, **kwargs: Any) -> None:
@@ -296,14 +336,26 @@ def _nbytes(m: Any) -> int:
 
 # Share of used texels that must be see-through before the material is marked transparent.
 TRANSPARENT_SHARE = 0.01
+# Above this share the alpha is not believed as glass: painted cut-outs (a cactus, a tree) come
+# back with almost every texel see-through, and BLEND would show a solid object as a faint ghost.
+GHOST_SHARE = 0.5
+# Those cut-outs are drawn MASK instead: texels below the cutoff (ground sheets and slabs the
+# model marks invisible) are hidden, the rest is solid. Measured on 36 painted desert assets.
+MASK_CUTOFF = 0.1
+# ...unless nearly everything is below the cutoff (a glowing flower): then OPAQUE, not invisible.
+MASK_MAX_HIDDEN = 0.95
 
 
 def set_alpha_mode(mesh: Any) -> str:
-    """Mark the material BLEND when the baked texture really has see-through parts.
+    """Choose the material's alpha mode from the alpha of the texels the mesh actually uses.
 
     Upstream to_glb bakes an alpha channel (glass, jellyfish...) but always writes
-    alphaMode=OPAQUE, so every viewer shows glass as a solid shell. We look at the alpha of
-    the texels the mesh actually uses (unused texels are inpainted) and switch only then.
+    alphaMode=OPAQUE, so every viewer shows glass as a solid shell. Unused texels are inpainted,
+    so only texels under the vertices count.
+    - up to TRANSPARENT_SHARE see-through: OPAQUE;
+    - up to GHOST_SHARE: BLEND (glass);
+    - more: MASK, and faces that would be hidden entirely are dropped, so the model's size is
+      that of what you see; OPAQUE when MASK would hide nearly everything.
     """
     import numpy as np
 
@@ -312,13 +364,33 @@ def set_alpha_mode(mesh: Any) -> str:
     if tex.ndim != 3 or tex.shape[-1] != 4:
         return mat.alphaMode
     h, w = tex.shape[:2]
+
+    def alpha_at(uv: Any) -> Any:
+        rows = ((1 - uv[..., 1]) * (h - 1)).astype(int).clip(0, h - 1)
+        cols = (uv[..., 0] * (w - 1)).astype(int).clip(0, w - 1)
+        return tex[rows, cols, 3]
+
     uv = np.asarray(mesh.visual.uv)
-    rows = ((1 - uv[:, 1]) * (h - 1)).astype(int).clip(0, h - 1)
-    cols = (uv[:, 0] * (w - 1)).astype(int).clip(0, w - 1)
-    share = float((tex[rows, cols, 3] < 250).mean())
-    if share > TRANSPARENT_SHARE:
+    alpha = alpha_at(uv)
+    share = float((alpha < 250).mean())
+    hidden = float((alpha < MASK_CUTOFF * 255).mean())
+    if TRANSPARENT_SHARE < share <= GHOST_SHARE:
         mat.alphaMode = "BLEND"
-    log.info("alpha: %.1f%% of used texels see-through -> %s", share * 100, mat.alphaMode)
+    elif share > GHOST_SHARE and hidden <= MASK_MAX_HIDDEN:
+        mat.alphaMode = "MASK"
+        mat.alphaCutoff = MASK_CUTOFF
+        corners = uv[mesh.faces]  # (F, 3, 2); the centre too, so a face is dropped only if
+        seen = np.concatenate([alpha_at(corners), alpha_at(corners.mean(1))[:, None]], 1)
+        keep = (seen >= MASK_CUTOFF * 255).any(1)  # no part of it would show
+        if not keep.all():
+            mesh.update_faces(keep)
+            mesh.remove_unreferenced_vertices()
+    log.info(
+        "alpha: %.1f%% of used texels see-through, %.1f%% below the cutoff -> %s",
+        share * 100,
+        hidden * 100,
+        mat.alphaMode,
+    )
     return mat.alphaMode
 
 

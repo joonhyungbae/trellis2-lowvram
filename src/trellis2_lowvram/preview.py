@@ -5,8 +5,9 @@
 The web UI shows these images next to its interactive 3D view, because that view needs WebGPU,
 which some browsers (and every headless test browser) do not have.
 
-Base color texture (with its alpha) and simple directional shading, rasterized with nvdiffrast
-(needs a GPU). A quick look, not a PBR render: metallic/roughness are ignored.
+Base color texture (with its alpha, unless the material is OPAQUE) and simple directional
+shading, rasterized with nvdiffrast (needs a GPU). A quick look, not a PBR render:
+metallic/roughness are ignored.
 """
 
 from __future__ import annotations
@@ -38,13 +39,30 @@ def load(glb: str):
     mat = mesh.visual.material
     tex_img = getattr(mat, "baseColorTexture", None) or getattr(mat, "image", None)
     tex = torch.tensor(np.array(tex_img.convert("RGBA")), dtype=torch.float32, device=dev)[None]
+    mode = getattr(mat, "alphaMode", None)
+    if mode in (None, "OPAQUE"):  # viewers ignore alpha then, too
+        tex[..., 3] = 255
+    elif mode == "MASK":  # fully shown above the cutoff, hidden below
+        cutoff = getattr(mat, "alphaCutoff", None) or 0.5
+        tex[..., 3] = (tex[..., 3] >= cutoff * 255).float() * 255
+    f = torch.tensor(mesh.faces, dtype=torch.int64, device=dev)
     return (
         v,
-        torch.tensor(mesh.faces, dtype=torch.int32, device=dev),
+        f.int(),
         torch.tensor(mesh.visual.uv, dtype=torch.float32, device=dev),
-        torch.tensor(mesh.vertex_normals, dtype=torch.float32, device=dev),
+        vertex_normals(v, f),
         (tex / 255).contiguous(),
     )
+
+
+def vertex_normals(v: torch.Tensor, f: torch.Tensor) -> torch.Tensor:
+    """Area-weighted vertex normals. trimesh's fall back to a slow Python loop without scipy."""
+    a, b, c = v[f[:, 0]], v[f[:, 1]], v[f[:, 2]]
+    fn = torch.linalg.cross(b - a, c - a)
+    n = torch.zeros_like(v)
+    for i in range(3):
+        n.index_add_(0, f[:, i], fn)
+    return torch.nn.functional.normalize(n, dim=-1)
 
 
 def view(ctx, v, f, uv, n, tex, yaw: float, pitch: float) -> np.ndarray:
@@ -90,7 +108,11 @@ def render(glb: str, out: str, ref: str | None = None) -> str:
         r = open_image(Path(ref)).convert("RGBA")  # HEIC, phone rotation
         bg = Image.new("RGBA", r.size, (int(BG * 255),) * 3 + (255,))
         bg.alpha_composite(r)
-        tiles.insert(0, bg.convert("RGB").resize((SIZE, SIZE)))
+        k = SIZE / max(bg.size)  # keep its shape; a tall cactus is not stretched sideways
+        bg = bg.resize((max(1, round(bg.width * k)), max(1, round(bg.height * k))))
+        tile = Image.new("RGB", (SIZE, SIZE), (int(BG * 255),) * 3)
+        tile.paste(bg.convert("RGB"), ((SIZE - bg.width) // 2, (SIZE - bg.height) // 2))
+        tiles.insert(0, tile)
     sheet = Image.new("RGB", (SIZE * len(tiles), SIZE), (255, 255, 255))
     for i, tile in enumerate(tiles):
         sheet.paste(tile, (i * SIZE, 0))
