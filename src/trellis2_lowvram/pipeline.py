@@ -285,6 +285,9 @@ class Generator:
                 # without it they are clean and solid objects look the same (HANDOFF, verified).
                 remesh=False,
             )
+        broken = count_broken_vertices(glb.vertices)
+        if broken:  # the model sits in [-0.5, 0.5]; viewers would frame it as a dot
+            log.error("%d vertices lie far outside the model's box (export bug)", broken)
         set_alpha_mode(glb)
         out_base.parent.mkdir(parents=True, exist_ok=True)
         paths = [out_base.with_suffix(".glb")]
@@ -292,6 +295,14 @@ class Generator:
         if obj:
             paths += export_obj(paths[0])
         return paths
+
+
+def count_broken_vertices(vertices: Any) -> int:
+    """Vertices that are not finite or lie well outside the [-0.5, 0.5] box."""
+    import numpy as np
+
+    v = np.asarray(vertices)
+    return int((~np.isfinite(v).all(1) | (np.abs(v) > 1).any(1)).sum())
 
 
 def tex_guidance(strength: float) -> dict[str, Any]:
@@ -313,21 +324,19 @@ def drop_degenerate_faces() -> Iterator[None]:
 
     Upstream's cleanup without remeshing (repair_non_manifold_edges) leaves a few dozen
     zero-area faces; xatlas then fails ("texcoord.x >= 0") and texture sampling crashes with
-    "CUDA error: invalid configuration argument" or a segfault. Seen on a saguaro at 200k and
-    300k faces and a bare tree at 500k; all three export fine with this (HANDOFF).
+    "CUDA error: invalid configuration argument" or a segfault. Seen on a column cactus at 300k
+    faces and a bare tree at 500k; both export fine with this, with no broken vertices, even on
+    a GPU cache filled with old data (HANDOFF).
     """
     import cumesh
 
     unify = cumesh.CuMesh.unify_face_orientations  # the last step before unwrapping
 
     def patched(self: Any, *args: Any, **kwargs: Any) -> Any:
-        v, f = self.read()
-        p = v[f.long()]
-        area = torch.linalg.cross(p[:, 1] - p[:, 0], p[:, 2] - p[:, 0]).norm(dim=-1)
-        keep = area > 1e-12
-        if not bool(keep.all()):
-            log.info("dropping %d zero-area faces before UV unwrap", int((~keep).sum()))
-            self.init(v, f[keep])
+        # cumesh's own call, not read() + init(v, f[keep]) or remove_faces(): those left the
+        # vertices fill_holes had added as garbage (1e20) whenever the GPU cache held old data,
+        # i.e. in every batch run (2026-10-31, all 36 sprites; reproduced with a dirtied cache).
+        self.remove_degenerate_faces()
         return unify(self, *args, **kwargs)
 
     cumesh.CuMesh.unify_face_orientations = patched

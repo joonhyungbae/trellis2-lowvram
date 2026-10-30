@@ -119,8 +119,12 @@ Gotchas found so far:
   doubleSided materials). Crown, brick pillar and turret look the same either way. Without
   remeshing, upstream's cleanup leaves some zero-area faces and xatlas fails
   (`ASSERT: texcoord.x >= 0`, then "CUDA error: invalid configuration argument" or a segfault):
-  saguaro at 200k/300k faces, tree at 500k. `pipeline.drop_degenerate_faces` removes them before
-  unwrapping (20-532 faces); all three then export in 6-12 s.
+  saguaro at 200k/300k faces, tree at 500k. `pipeline.drop_degenerate_faces` calls cumesh's own
+  `remove_degenerate_faces` before unwrapping; column 300k/500k and tree 200k/500k then export in
+  10-46 s. Do not drop them with `read()` + `init(v, f[keep])` or `remove_faces()`: on a GPU
+  cache holding old data (any batch) the vertices fill_holes had added came out at ~1e20, so
+  viewers framed the model as a dot (all 36 sprites, 2026-10-31; reproduced by filling the cache
+  with 1e20 before export). `export` now logs an error if any vertex leaves the box.
 - Transparent PNGs are framed by `images.frame_cutout` (alpha > 25), not upstream preprocess_image
   (alpha > 204): soft painted alpha (twigs, grass tips) was cropped away. Same black-premultiplied
   square crop otherwise.

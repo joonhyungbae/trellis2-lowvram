@@ -45,6 +45,15 @@ def test_mask_drops_faces_nobody_would_see():
     assert mesh.visual.material.alphaCutoff == pytest.approx(0.1)
 
 
+def test_broken_vertices_are_counted():
+    from trellis2_lowvram.pipeline import count_broken_vertices
+
+    v = np.zeros((4, 3))
+    v[1, 2] = 1e20
+    v[2, 0] = np.nan
+    assert count_broken_vertices(v) == 2
+
+
 def test_tex_guidance_off_stays_upstream():
     from trellis2_lowvram.pipeline import tex_guidance
 
